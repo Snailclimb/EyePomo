@@ -16,6 +16,10 @@ let package = Package(
         .executableTarget(
             name: "EyePomoCoreValidation",
             dependencies: ["EyePomoCore"]
+        ),
+        .testTarget(
+            name: "EyePomoCoreTests",
+            dependencies: ["EyePomoCore"]
         )
     ]
 )

@@ -130,6 +130,26 @@ func eyeBreakActionsAreDistinct() throws {
 }
 
 @MainActor
+func activeEyeBreakCompletesWhenDeadlineExpires() throws {
+    var state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(workHoursEnabled: false))
+
+    _ = AppReducer.reduce(state: &state, event: .user(.requestEyeBreakNow), now: .init(milliseconds: 0), wallDate: startDate, calendar: calendar)
+    let effects = AppReducer.reduce(state: &state, event: .clock(.tick), now: .init(milliseconds: 20_000), wallDate: startDate, calendar: calendar)
+
+    try check(state.eyeBreak.phase == .scheduled, "expired active eye break should return to scheduled phase")
+    try check(state.eyeBreak.activeDeadline == nil, "expired active eye break should clear active deadline")
+    try check(state.presentation.activeOverlay == nil, "expired active eye break should clear overlay state")
+    try check(state.eyeBreak.nextDueAt == AppInstant(milliseconds: 1_220_000), "expired active eye break should schedule next interval")
+    try check(effects.contains { effect in
+        if case .appendEvent(let event) = effect, case .eyeBreakCompleted(let payload) = event.kind {
+            return payload.durationSeconds == 20 && payload.trigger == "timer" && event.source == .system
+        }
+        return false
+    }, "expired active eye break should log timer completion")
+    try check(effects.contains { if case .dismissOverlay = $0 { return true }; return false }, "expired active eye break should dismiss overlay")
+}
+
+@MainActor
 func idleCreatesInferredRest() throws {
     var state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(workHoursEnabled: false))
     let effects = AppReducer.reduce(
@@ -224,6 +244,7 @@ let validations: [(String, @MainActor () throws -> Void)] = [
     ("eyeBreakDueDuringFocusShowsOverlay", eyeBreakDueDuringFocusShowsOverlay),
     ("pomodoroBreakSatisfiesEyeBreak", pomodoroBreakSatisfiesEyeBreak),
     ("eyeBreakActionsAreDistinct", eyeBreakActionsAreDistinct),
+    ("activeEyeBreakCompletesWhenDeadlineExpires", activeEyeBreakCompletesWhenDeadlineExpires),
     ("idleCreatesInferredRest", idleCreatesInferredRest),
     ("wakeRefreshesStaleOverlay", wakeRefreshesStaleOverlay),
     ("workHoursSuppressAutomaticEyeBreak", workHoursSuppressAutomaticEyeBreak),

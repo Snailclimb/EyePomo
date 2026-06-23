@@ -125,6 +125,8 @@ public enum AppReducer {
     ) -> [AppEffect] {
         var effects: [AppEffect] = []
 
+        effects.append(contentsOf: maybeCompleteActiveEyeBreak(state: &state, now: now, wallDate: wallDate, calendar: calendar))
+
         if state.pomodoro.runState == .running, let deadline = state.pomodoro.deadline, deadline.hasExpired(at: now) {
             if state.pomodoro.phase == .focus {
                 effects.append(contentsOf: completeFocus(state: &state, now: now, wallDate: wallDate, calendar: calendar))
@@ -422,6 +424,26 @@ public enum AppReducer {
         }
 
         return activateEyeBreak(state: &state, now: now, wallDate: wallDate, calendar: calendar, trigger: "scheduled")
+    }
+
+    private static func maybeCompleteActiveEyeBreak(
+        state: inout AppState,
+        now: AppInstant,
+        wallDate: Date,
+        calendar: Calendar
+    ) -> [AppEffect] {
+        guard state.eyeBreak.phase == .active, let deadline = state.eyeBreak.activeDeadline, deadline.hasExpired(at: now) else {
+            return []
+        }
+
+        return satisfyEyeBreak(
+            state: &state,
+            now: now,
+            wallDate: wallDate,
+            calendar: calendar,
+            kind: .eyeBreakCompleted(EyeBreakPayload(durationSeconds: deadline.durationSeconds, trigger: "timer")),
+            source: .system
+        )
     }
 
     private static func activateEyeBreak(
