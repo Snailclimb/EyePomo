@@ -32,6 +32,8 @@ struct SettingsView: View {
 
     private var eyeBreakSection: some View {
         SettingsSection(title: "护眼设置", icon: "eye") {
+            Toggle("启用护眼提醒", isOn: boolBinding(\.eyeBreakEnabled))
+                .toggleStyle(.switch)
             StepperRow(
                 title: "提醒间隔",
                 value: minutesBinding(\.eyeBreakIntervalSeconds),
@@ -64,6 +66,8 @@ struct SettingsView: View {
 
     private var timeSection: some View {
         SettingsSection(title: "时间与提醒", icon: "bell.badge") {
+            Toggle("启用系统通知", isOn: notificationsBinding)
+                .toggleStyle(.switch)
             Toggle("启用工作时段限制", isOn: boolBinding(\.workHoursEnabled))
                 .toggleStyle(.switch)
             StepperRow(title: "开始时间", value: hourBinding(\.workStartMinuteOfDay), range: 0...23, unit: "点")
@@ -74,6 +78,22 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         SettingsSection(title: "数据与日志", icon: "doc.text") {
+            Toggle("开机自动启动", isOn: launchAtLoginBinding)
+                .toggleStyle(.switch)
+            Toggle("启用休息遮罩", isOn: boolBinding(\.overlayEnabled))
+                .toggleStyle(.switch)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("遮罩透明度")
+                        .font(.system(size: 13, weight: .medium))
+                    Spacer()
+                    Text("\(Int(coordinator.state.preferences.overlayOpacity * 100))%")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(EyePomoTheme.secondaryText)
+                }
+                Slider(value: opacityBinding, in: 0.55...0.92)
+                    .tint(EyePomoTheme.teal)
+            }
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("本地日志目录")
@@ -144,6 +164,31 @@ struct SettingsView: View {
             set: { newValue in
                 var preferences = coordinator.state.preferences
                 preferences[keyPath: keyPath] = newValue
+                coordinator.updatePreferences(preferences)
+            }
+        )
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { coordinator.state.preferences.launchAtLogin },
+            set: { coordinator.setLaunchAtLogin($0) }
+        )
+    }
+
+    private var notificationsBinding: Binding<Bool> {
+        Binding(
+            get: { coordinator.state.preferences.notificationsEnabled },
+            set: { coordinator.setNotificationsEnabled($0) }
+        )
+    }
+
+    private var opacityBinding: Binding<Double> {
+        Binding(
+            get: { coordinator.state.preferences.overlayOpacity },
+            set: { newValue in
+                var preferences = coordinator.state.preferences
+                preferences.overlayOpacity = newValue
                 coordinator.updatePreferences(preferences)
             }
         )
