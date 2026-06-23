@@ -18,6 +18,10 @@ let package = Package(
             name: "EyePomo",
             dependencies: ["EyePomoCore"],
             path: "EyePomoApp",
+            exclude: [
+                "EyePomo.entitlements",
+                "Resources/Info.plist"
+            ],
             resources: [
                 .process("Resources")
             ]
