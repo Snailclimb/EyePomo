@@ -65,9 +65,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private func title(for language: SettingsLanguage) -> String {
         switch language {
         case .chinese:
-            return "EyePomo 偏好设置"
+            return "EyePomo 设置"
         case .english:
-            return "EyePomo Preferences"
+            return "EyePomo Settings"
         }
     }
 }

@@ -86,7 +86,7 @@ struct MenuBarPanelView: View {
             Button {
                 coordinator.showSettings()
             } label: {
-                Label("设置", systemImage: "gearshape")
+                Label(localized("设置", "Settings"), systemImage: "gearshape")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(SecondaryPanelButtonStyle())
@@ -94,7 +94,7 @@ struct MenuBarPanelView: View {
             Button {
                 coordinator.openLogsDirectory()
             } label: {
-                Label("日志", systemImage: "folder")
+                Label(localized("日志", "Logs"), systemImage: "folder")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(SecondaryPanelButtonStyle())
@@ -136,5 +136,9 @@ struct MenuBarPanelView: View {
         default:
             return "bolt.fill"
         }
+    }
+
+    private func localized(_ chinese: String, _ english: String) -> String {
+        coordinator.appSettings.language == .english ? english : chinese
     }
 }

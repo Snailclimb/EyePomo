@@ -36,7 +36,7 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             Color.clear.frame(width: 72)
             Spacer()
-            Text(localized("EyePomo 偏好设置", "EyePomo Preferences"))
+            Text(localized("EyePomo 设置", "EyePomo Settings"))
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(SettingsStyle.mutedText)
             Spacer()
@@ -68,6 +68,7 @@ struct SettingsView: View {
                         )
                 }
                 .buttonStyle(.plain)
+                .focusable(false)
             }
         }
         .frame(maxWidth: .infinity)
@@ -240,11 +241,26 @@ struct SettingsView: View {
                 }
             }
 
-            Text(localized("EyePomo 0.1.0 · 数据仅存储在本地，不会上传至任何服务器", "EyePomo 0.1.0 · Data stays local and is never uploaded to a server"))
-                .font(.system(size: 11))
-                .foregroundStyle(SettingsStyle.tertiaryText)
-                .frame(maxWidth: .infinity)
-                .padding(.top, -4)
+            HStack(spacing: 12) {
+                Text(localized("EyePomo \(coordinator.appVersionString) · 数据仅保存在本机，不会上传到任何服务器", "EyePomo \(coordinator.appVersionString) · Data stays on this Mac and is never uploaded to a server"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(SettingsStyle.tertiaryText)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+
+                Spacer(minLength: 0)
+
+                Button {
+                    coordinator.showAbout()
+                } label: {
+                    Label(localized("关于", "About"), systemImage: "info.circle")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(SettingsStyle.actionBlue)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, -4)
         }
     }
 

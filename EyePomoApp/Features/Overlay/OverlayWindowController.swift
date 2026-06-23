@@ -32,9 +32,12 @@ final class OverlayWindowController {
             panel.hidesOnDeactivate = false
             panel.hasShadow = false
             panel.setFrame(screen.frame, display: true)
-            panel.contentViewController = NSHostingController(
+            let hostingView = NSHostingView(
                 rootView: OverlayView(coordinator: coordinator, request: request)
             )
+            hostingView.frame = NSRect(origin: .zero, size: screen.frame.size)
+            hostingView.autoresizingMask = [.width, .height]
+            panel.contentView = hostingView
             panel.orderFrontRegardless()
             panels.append(panel)
         }

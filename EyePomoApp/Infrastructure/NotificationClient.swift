@@ -3,11 +3,23 @@ import Foundation
 import UserNotifications
 
 final class NotificationClient {
+    var isAvailable: Bool {
+        Bundle.main.bundleURL.pathExtension.lowercased() == "app"
+    }
+
     func requestAuthorizationIfNeeded() {
+        guard isAvailable else {
+            return
+        }
+
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     func deliverOverlayNotification(_ request: OverlayRequest) {
+        guard isAvailable else {
+            return
+        }
+
         let content = UNMutableNotificationContent()
         content.title = title(for: request.kind)
         content.body = request.message

@@ -53,6 +53,7 @@ struct OverlayView: View {
             )
             .shadow(color: .black.opacity(0.32), radius: 28, x: 0, y: 18)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var controls: some View {

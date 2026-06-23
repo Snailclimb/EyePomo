@@ -67,13 +67,14 @@ final class StatusItemController: NSObject {
     private func showMenu(from button: NSStatusBarButton) {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addItem(menuItem("暂停提醒 1 小时", action: #selector(pauseForOneHour)))
-        menu.addItem(menuItem("今日不再提醒", action: #selector(muteToday)))
+        menu.addItem(menuItem(localized("暂停提醒 1 小时", "Pause for 1 Hour"), action: #selector(pauseForOneHour)))
+        menu.addItem(menuItem(localized("今日不再提醒", "Mute for Today"), action: #selector(muteToday)))
         menu.addItem(.separator())
-        menu.addItem(menuItem("打开设置", action: #selector(openSettings)))
-        menu.addItem(menuItem("打开日志目录", action: #selector(openLogs)))
+        menu.addItem(menuItem(localized("关于 EyePomo", "About EyePomo"), action: #selector(openAbout)))
+        menu.addItem(menuItem(localized("设置…", "Settings…"), action: #selector(openSettings)))
+        menu.addItem(menuItem(localized("打开日志目录", "Open Logs Folder"), action: #selector(openLogs)))
         menu.addItem(.separator())
-        menu.addItem(menuItem("退出 EyePomo", action: #selector(quit)))
+        menu.addItem(menuItem(localized("退出 EyePomo", "Quit EyePomo"), action: #selector(quit)))
 
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
     }
@@ -96,12 +97,20 @@ final class StatusItemController: NSObject {
         coordinator.showSettings()
     }
 
+    @objc private func openAbout() {
+        coordinator.showAbout()
+    }
+
     @objc private func openLogs() {
         coordinator.openLogsDirectory()
     }
 
     @objc private func quit() {
         coordinator.quit()
+    }
+
+    private func localized(_ chinese: String, _ english: String) -> String {
+        coordinator.appSettings.language == .english ? english : chinese
     }
 
     private func title(for snapshot: DisplaySnapshot) -> String {

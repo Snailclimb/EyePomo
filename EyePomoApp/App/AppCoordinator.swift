@@ -48,7 +48,12 @@ final class AppCoordinator: ObservableObject {
         settingsStore.save(state.preferences)
         appSettingsStore.save(appSettings)
         if state.preferences.notificationsEnabled {
-            notificationClient.requestAuthorizationIfNeeded()
+            if notificationClient.isAvailable {
+                notificationClient.requestAuthorizationIfNeeded()
+            } else {
+                state.preferences.notificationsEnabled = false
+                settingsStore.save(state.preferences)
+            }
         }
         statusItemController.install()
         idleMonitor = IdleMonitor(
@@ -96,9 +101,18 @@ final class AppCoordinator: ObservableObject {
 
     func setNotificationsEnabled(_ enabled: Bool) {
         var preferences = state.preferences
-        preferences.notificationsEnabled = enabled
         if enabled {
+            guard notificationClient.isAvailable else {
+                preferences.notificationsEnabled = false
+                updatePreferences(preferences)
+                showNotificationUnavailable()
+                return
+            }
+
+            preferences.notificationsEnabled = true
             notificationClient.requestAuthorizationIfNeeded()
+        } else {
+            preferences.notificationsEnabled = false
         }
         updatePreferences(preferences)
     }
@@ -124,6 +138,18 @@ final class AppCoordinator: ObservableObject {
 
     func showSettings() {
         settingsWindowController.show(coordinator: self)
+    }
+
+    func showAbout() {
+        let panelOptions: [NSApplication.AboutPanelOptionKey: Any] = [
+            .applicationName: "EyePomo",
+            .applicationVersion: appVersionString,
+            .version: appBuildString,
+            .credits: aboutCredits
+        ]
+
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: panelOptions)
     }
 
     func chooseDataDirectory() {
@@ -242,6 +268,30 @@ final class AppCoordinator: ObservableObject {
         alert.messageText = appSettings.language == .english ? "Could Not Change Data Folder" : "无法切换数据目录"
         alert.informativeText = error.localizedDescription
         alert.runModal()
+    }
+
+    private func showNotificationUnavailable() {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = appSettings.language == .english ? "Notifications Need an App Bundle" : "系统通知需要 App Bundle"
+        alert.informativeText = appSettings.language == .english
+            ? "macOS UserNotifications is unavailable when EyePomo is launched with swift run. Run the built .app from Xcode or Finder to test notifications."
+            : "通过 swift run 启动时，macOS UserNotifications 不可用。请从 Xcode 或 Finder 运行构建出的 .app 来测试系统通知。"
+        alert.runModal()
+    }
+
+    var appVersionString: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
+    }
+
+    var appBuildString: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
+    }
+
+    private var aboutCredits: NSAttributedString {
+        NSAttributedString(string: appSettings.language == .english
+            ? "A lightweight menu bar app for eye breaks and Pomodoro focus.\nData stays on this Mac."
+            : "一款轻量菜单栏应用，用于眼休提醒和番茄钟专注。\n数据仅保存在本机。")
     }
 
     private func tick() {
