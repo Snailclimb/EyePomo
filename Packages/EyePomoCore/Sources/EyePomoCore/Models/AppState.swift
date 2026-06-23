@@ -260,6 +260,18 @@ public extension AppState {
             }
         }
 
+        guard preferences.eyeBreakEnabled else {
+            return DisplaySnapshot(
+                statusTitle: "Eye breaks off",
+                stateLabel: "眼休已关闭",
+                countdown: "",
+                progress: 0,
+                primaryAction: .startPomodoro,
+                primaryTitle: "开始专注",
+                accent: .neutral
+            )
+        }
+
         let remaining = eyeBreak.remainingSeconds(at: now)
         return DisplaySnapshot(
             statusTitle: "👁 \(Self.format(seconds: remaining))",

@@ -20,15 +20,16 @@ struct MenuBarPanelView: View {
         .frame(width: 320)
         .background(EyePomoTheme.panelBackground)
         .foregroundStyle(EyePomoTheme.primaryText)
+        .preferredColorScheme(Appearance.resolvedColorScheme(coordinator.appSettings.appearance))
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 3) {
                 Text("EyePomo")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(AppFont.font(15, weight: .semibold))
                 Text(snapshot.stateLabel)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(AppFont.font(12, weight: .medium))
                     .foregroundStyle(EyePomoTheme.secondaryText)
             }
             Spacer()
@@ -41,7 +42,7 @@ struct MenuBarPanelView: View {
     private var timerCard: some View {
         VStack(spacing: 10) {
             Text(snapshot.countdown)
-                .font(.system(size: 48, weight: .semibold, design: .monospaced))
+                .font(AppFont.font(48, weight: .semibold, design: .monospaced))
                 .foregroundStyle(EyePomoTheme.primaryText)
                 .contentTransition(.numericText())
                 .lineLimit(1)
@@ -61,9 +62,9 @@ struct MenuBarPanelView: View {
         }
         .padding(14)
         .background(EyePomoTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous)
                 .stroke(EyePomoTheme.border, lineWidth: 1)
         )
     }
@@ -106,7 +107,7 @@ struct MenuBarPanelView: View {
             coordinator.send(action)
         } label: {
             Label(title, systemImage: icon)
-                .font(.system(size: 12, weight: .medium))
+                .font(AppFont.font(12, weight: .medium))
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(SecondaryPanelButtonStyle())

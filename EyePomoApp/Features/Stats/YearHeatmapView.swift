@@ -75,7 +75,13 @@ struct YearHeatmapView: View {
             .frame(width: side, height: side)
             .overlay(
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
-                    .strokeBorder(Color.white.opacity(isToday ? 0.8 : 0), lineWidth: 1)
+                    .strokeBorder(
+                        Color.dynamic(
+                            light: Color.black.opacity(isToday ? 0.8 : 0),
+                            dark: Color.white.opacity(isToday ? 0.8 : 0)
+                        ),
+                        lineWidth: 1
+                    )
             )
             .help(tooltipText(dayKey: cell.dayKey, date: date, count: count))
     }
@@ -88,7 +94,7 @@ struct YearHeatmapView: View {
         return HStack(alignment: .bottom, spacing: gap) {
             ForEach(grouped) { week in
                 Text(monthLabel(for: week, formatter: formatter))
-                    .font(.system(size: 9))
+                    .font(AppFont.font(9))
                     .foregroundStyle(SettingsStyle.tertiaryText)
                     .frame(width: cellSide, height: 12, alignment: .leading)
             }
@@ -112,7 +118,7 @@ struct YearHeatmapView: View {
         return VStack(spacing: 3) {
             ForEach(0..<7) { row in
                 Text(labels.contains(row) ? formatter.string(from: Self.referenceWeekday(row)) : "")
-                    .font(.system(size: 9))
+                    .font(AppFont.font(9))
                     .foregroundStyle(SettingsStyle.tertiaryText)
                     .frame(width: 12, height: cellSide, alignment: .center)
             }
@@ -122,7 +128,7 @@ struct YearHeatmapView: View {
     private var legend: some View {
         HStack(spacing: 6) {
             Text(lessMoreText.less)
-                .font(.system(size: 9.5))
+                .font(AppFont.font(9.5))
                 .foregroundStyle(SettingsStyle.tertiaryText)
             ForEach(HeatmapLevel.allCases, id: \.self) { level in
                 RoundedRectangle(cornerRadius: 2, style: .continuous)
@@ -130,7 +136,7 @@ struct YearHeatmapView: View {
                     .frame(width: 10, height: 10)
             }
             Text(lessMoreText.more)
-                .font(.system(size: 9.5))
+                .font(AppFont.font(9.5))
                 .foregroundStyle(SettingsStyle.tertiaryText)
         }
     }
@@ -139,9 +145,13 @@ struct YearHeatmapView: View {
         let base = EyePomoTheme.teal
         switch level {
         case .empty:
-            return reduceTransparency
-                ? Color(red: 50 / 255, green: 50 / 255, blue: 52 / 255)
-                : Color.white.opacity(0.06)
+            if reduceTransparency {
+                return Color.dynamic(
+                    light: Color(red: 225 / 255, green: 225 / 255, blue: 228 / 255),
+                    dark: Color(red: 50 / 255, green: 50 / 255, blue: 52 / 255)
+                )
+            }
+            return Color.dynamic(light: Color.black.opacity(0.06), dark: Color.white.opacity(0.06))
         case .low:
             return base.opacity(0.30)
         case .medium:

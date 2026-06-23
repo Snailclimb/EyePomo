@@ -1,5 +1,10 @@
 import Foundation
 
+public enum OverlayTint: String, Codable, Sendable, Equatable, CaseIterable {
+    case warm
+    case dark
+}
+
 public struct AppPreferences: Codable, Sendable, Equatable {
     public var eyeBreakEnabled: Bool
     public var eyeBreakIntervalSeconds: Int
@@ -17,6 +22,7 @@ public struct AppPreferences: Codable, Sendable, Equatable {
     public var idleThresholdSeconds: Int
     public var launchAtLogin: Bool
     public var overlayOpacity: Double
+    public var overlayTint: OverlayTint
 
     public init(
         eyeBreakEnabled: Bool = true,
@@ -34,7 +40,8 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         workEndMinuteOfDay: Int = 18 * 60,
         idleThresholdSeconds: Int = 3 * 60,
         launchAtLogin: Bool = false,
-        overlayOpacity: Double = 0.82
+        overlayOpacity: Double = 0.82,
+        overlayTint: OverlayTint = .warm
     ) {
         self.eyeBreakEnabled = eyeBreakEnabled
         self.eyeBreakIntervalSeconds = eyeBreakIntervalSeconds
@@ -52,6 +59,71 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         self.idleThresholdSeconds = idleThresholdSeconds
         self.launchAtLogin = launchAtLogin
         self.overlayOpacity = overlayOpacity
+        self.overlayTint = overlayTint
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case eyeBreakEnabled
+        case eyeBreakIntervalSeconds
+        case eyeBreakDurationSeconds
+        case snoozeSeconds
+        case overlayEnabled
+        case notificationsEnabled
+        case focusDurationSeconds
+        case shortBreakDurationSeconds
+        case longBreakDurationSeconds
+        case longBreakEvery
+        case workHoursEnabled
+        case workStartMinuteOfDay
+        case workEndMinuteOfDay
+        case idleThresholdSeconds
+        case launchAtLogin
+        case overlayOpacity
+        case overlayTint
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            eyeBreakEnabled: try container.decodeIfPresent(Bool.self, forKey: .eyeBreakEnabled) ?? true,
+            eyeBreakIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .eyeBreakIntervalSeconds) ?? 20 * 60,
+            eyeBreakDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .eyeBreakDurationSeconds) ?? 20,
+            snoozeSeconds: try container.decodeIfPresent(Int.self, forKey: .snoozeSeconds) ?? 5 * 60,
+            overlayEnabled: try container.decodeIfPresent(Bool.self, forKey: .overlayEnabled) ?? true,
+            notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
+            focusDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .focusDurationSeconds) ?? 25 * 60,
+            shortBreakDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .shortBreakDurationSeconds) ?? 5 * 60,
+            longBreakDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .longBreakDurationSeconds) ?? 15 * 60,
+            longBreakEvery: try container.decodeIfPresent(Int.self, forKey: .longBreakEvery) ?? 4,
+            workHoursEnabled: try container.decodeIfPresent(Bool.self, forKey: .workHoursEnabled) ?? true,
+            workStartMinuteOfDay: try container.decodeIfPresent(Int.self, forKey: .workStartMinuteOfDay) ?? 9 * 60,
+            workEndMinuteOfDay: try container.decodeIfPresent(Int.self, forKey: .workEndMinuteOfDay) ?? 18 * 60,
+            idleThresholdSeconds: try container.decodeIfPresent(Int.self, forKey: .idleThresholdSeconds) ?? 3 * 60,
+            launchAtLogin: try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false,
+            overlayOpacity: try container.decodeIfPresent(Double.self, forKey: .overlayOpacity) ?? 0.82,
+            overlayTint: try container.decodeIfPresent(OverlayTint.self, forKey: .overlayTint) ?? .warm
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(eyeBreakEnabled, forKey: .eyeBreakEnabled)
+        try container.encode(eyeBreakIntervalSeconds, forKey: .eyeBreakIntervalSeconds)
+        try container.encode(eyeBreakDurationSeconds, forKey: .eyeBreakDurationSeconds)
+        try container.encode(snoozeSeconds, forKey: .snoozeSeconds)
+        try container.encode(overlayEnabled, forKey: .overlayEnabled)
+        try container.encode(notificationsEnabled, forKey: .notificationsEnabled)
+        try container.encode(focusDurationSeconds, forKey: .focusDurationSeconds)
+        try container.encode(shortBreakDurationSeconds, forKey: .shortBreakDurationSeconds)
+        try container.encode(longBreakDurationSeconds, forKey: .longBreakDurationSeconds)
+        try container.encode(longBreakEvery, forKey: .longBreakEvery)
+        try container.encode(workHoursEnabled, forKey: .workHoursEnabled)
+        try container.encode(workStartMinuteOfDay, forKey: .workStartMinuteOfDay)
+        try container.encode(workEndMinuteOfDay, forKey: .workEndMinuteOfDay)
+        try container.encode(idleThresholdSeconds, forKey: .idleThresholdSeconds)
+        try container.encode(launchAtLogin, forKey: .launchAtLogin)
+        try container.encode(overlayOpacity, forKey: .overlayOpacity)
+        try container.encode(overlayTint, forKey: .overlayTint)
     }
 }
 

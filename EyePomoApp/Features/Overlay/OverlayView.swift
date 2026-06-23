@@ -5,6 +5,7 @@ struct OverlayView: View {
     @ObservedObject var coordinator: AppCoordinator
     let request: OverlayRequest
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private var remainingSeconds: Int {
         switch request.kind {
@@ -17,25 +18,27 @@ struct OverlayView: View {
 
     var body: some View {
         ZStack {
-            Color.black
-                .opacity(coordinator.state.preferences.overlayOpacity)
-                .ignoresSafeArea()
+            OverlayTintSurface(
+                tint: coordinator.state.preferences.overlayTint,
+                opacity: coordinator.state.preferences.overlayOpacity,
+                reduceTransparency: reduceTransparency
+            )
 
             VStack(spacing: 18) {
                 Image(systemName: iconName)
-                    .font(.system(size: 34, weight: .semibold))
+                    .font(AppFont.font(34, weight: .semibold))
                     .foregroundStyle(accent)
 
                 VStack(spacing: 6) {
                     Text(title)
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(AppFont.font(22, weight: .semibold))
                     Text(message)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(AppFont.font(13, weight: .medium))
                         .foregroundStyle(EyePomoTheme.secondaryText)
                 }
 
                 Text(AppState.format(seconds: remainingSeconds))
-                    .font(.system(size: 64, weight: .semibold, design: .monospaced))
+                    .font(AppFont.font(64, weight: .semibold, design: .monospaced))
                     .contentTransition(reduceMotion ? .identity : .numericText())
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
@@ -46,14 +49,15 @@ struct OverlayView: View {
             .padding(26)
             .foregroundStyle(EyePomoTheme.primaryText)
             .background(EyePomoTheme.panelBackground.opacity(0.94))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous)
                     .stroke(EyePomoTheme.border, lineWidth: 1)
             )
             .shadow(color: .black.opacity(0.32), radius: 28, x: 0, y: 18)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .preferredColorScheme(Appearance.resolvedColorScheme(coordinator.appSettings.appearance))
     }
 
     private var controls: some View {
@@ -144,6 +148,49 @@ struct OverlayView: View {
         switch request.kind {
         case .eyeBreak, .shortBreak, .longBreak:
             return EyePomoTheme.teal
+        }
+    }
+}
+
+private struct OverlayTintSurface: View {
+    let tint: OverlayTint
+    let opacity: Double
+    let reduceTransparency: Bool
+
+    private var clampedOpacity: Double {
+        max(0.35, min(0.96, opacity))
+    }
+
+    private var effectiveOpacity: Double {
+        reduceTransparency ? max(0.90, clampedOpacity) : clampedOpacity
+    }
+
+    var body: some View {
+        ZStack {
+            baseColor
+                .opacity(effectiveOpacity)
+
+            if tint == .warm && !reduceTransparency {
+                LinearGradient(
+                    colors: [
+                        Color(red: 1.00, green: 0.56, blue: 0.25).opacity(clampedOpacity * 0.34),
+                        Color(red: 0.43, green: 0.18, blue: 0.08).opacity(clampedOpacity * 0.18),
+                        Color.clear
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+        .ignoresSafeArea()
+    }
+
+    private var baseColor: Color {
+        switch tint {
+        case .warm:
+            return Color(red: 0.13, green: 0.08, blue: 0.04)
+        case .dark:
+            return .black
         }
     }
 }

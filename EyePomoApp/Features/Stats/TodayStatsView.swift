@@ -7,7 +7,7 @@ struct TodayStatsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("今日统计")
-                .font(.system(size: 13, weight: .semibold))
+                .font(AppFont.font(13, weight: .semibold))
                 .foregroundStyle(EyePomoTheme.primaryText)
 
             HStack(spacing: 8) {
@@ -19,9 +19,9 @@ struct TodayStatsView: View {
         }
         .padding(12)
         .background(EyePomoTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous)
                 .stroke(EyePomoTheme.border, lineWidth: 1)
         )
     }
@@ -29,10 +29,10 @@ struct TodayStatsView: View {
     private func stat(_ title: String, value: String) -> some View {
         VStack(spacing: 4) {
             Text(value)
-                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .font(AppFont.font(18, weight: .semibold, design: .rounded))
                 .foregroundStyle(EyePomoTheme.primaryText)
             Text(title)
-                .font(.system(size: 11, weight: .medium))
+                .font(AppFont.font(11, weight: .medium))
                 .foregroundStyle(EyePomoTheme.secondaryText)
         }
         .frame(maxWidth: .infinity)

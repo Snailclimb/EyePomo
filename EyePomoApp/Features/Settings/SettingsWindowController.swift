@@ -14,6 +14,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
         if let window {
             window.title = title(for: coordinator.appSettings.language)
+            Appearance.apply(coordinator.appSettings.appearance, toWindow: window)
             window.makeKeyAndOrderFront(nil)
             window.orderFrontRegardless()
             NSApp.activate(ignoringOtherApps: true)
@@ -32,12 +33,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.styleMask.insert(.fullSizeContentView)
-        window.backgroundColor = NSColor(
-            calibratedRed: 28 / 255,
-            green: 28 / 255,
-            blue: 30 / 255,
-            alpha: 1
-        )
+        Appearance.apply(coordinator.appSettings.appearance, toWindow: window)
         window.isMovableByWindowBackground = true
         window.minSize = NSSize(width: 620, height: 560)
         window.isReleasedWhenClosed = false
@@ -55,6 +51,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func closeForDiagnostics() {
         window?.close()
+    }
+
+    /// 运行时切换外观模式时，更新已存在的设置窗口。
+    func applyAppearance(_ mode: AppearanceMode) {
+        guard let window else {
+            return
+        }
+        Appearance.apply(mode, toWindow: window)
     }
 
     func windowWillClose(_ notification: Notification) {

@@ -18,6 +18,7 @@ final class StatusItemController: NSObject {
         popover.behavior = .transient
         popover.contentSize = NSSize(width: 320, height: 520)
         popover.contentViewController = NSHostingController(rootView: MenuBarPanelView(coordinator: coordinator))
+        Appearance.apply(coordinator.appSettings.appearance, toPopover: popover)
 
         guard let button = statusItem.button else {
             return
@@ -30,6 +31,11 @@ final class StatusItemController: NSObject {
 
     var isInstalledForDiagnostics: Bool {
         statusItem.button != nil
+    }
+
+    /// 运行时切换外观模式时，更新菜单栏 popover。
+    func applyAppearance(_ mode: AppearanceMode) {
+        Appearance.apply(mode, toPopover: popover)
     }
 
     func update(snapshot: DisplaySnapshot) {
@@ -59,6 +65,7 @@ final class StatusItemController: NSObject {
         if popover.isShown {
             popover.performClose(sender)
         } else {
+            Appearance.apply(coordinator.appSettings.appearance, toPopover: popover)
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }

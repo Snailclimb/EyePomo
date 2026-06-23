@@ -27,7 +27,7 @@ struct SettingsView: View {
                 tabToolbar
                 ScrollView {
                     selectedContent
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, AppDensityProfile.metrics.contentPadding)
                         .padding(.top, 20)
                         .padding(.bottom, 24)
                 }
@@ -36,8 +36,9 @@ struct SettingsView: View {
             .background(SettingsStyle.windowBackground)
         }
         .frame(minWidth: 620, minHeight: 560)
-        .font(.system(size: 13))
+        .font(AppFont.font(13))
         .foregroundStyle(SettingsStyle.primaryText)
+        .preferredColorScheme(Appearance.resolvedColorScheme(coordinator.appSettings.appearance))
         .onAppear {
             refreshTrendIfNeeded()
             refreshScopeSummariesIfNeeded()
@@ -99,7 +100,7 @@ struct SettingsView: View {
             Color.clear.frame(width: 72)
             Spacer()
             Text(localized("EyePomo 设置", "EyePomo Settings"))
-                .font(.system(size: 13, weight: .medium))
+                .font(AppFont.font(13, weight: .medium))
                 .foregroundStyle(SettingsStyle.mutedText)
             Spacer()
             Color.clear.frame(width: 72)
@@ -120,13 +121,13 @@ struct SettingsView: View {
                     selectedTab = tab
                 } label: {
                     Text(tab.title(language: coordinator.appSettings.language))
-                        .font(.system(size: 13, weight: selectedTab == tab ? .medium : .regular))
+                        .font(AppFont.font(13, weight: selectedTab == tab ? .medium : .regular))
                         .foregroundStyle(selectedTab == tab ? SettingsStyle.primaryText : SettingsStyle.mutedText)
                         .padding(.vertical, 5)
                         .padding(.horizontal, 18)
                         .background(
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(selectedTab == tab ? Color.white.opacity(0.10) : .clear)
+                                .fill(selectedTab == tab ? SettingsStyle.selectionFill : .clear)
                         )
                 }
                 .buttonStyle(.plain)
@@ -159,7 +160,7 @@ struct SettingsView: View {
     }
 
     private var eyeTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
             SettingGroup {
                 SettingRow(localized("启用眼部提醒", "Enable eye reminders"), sub: localized("定时提醒你放松眼睛，遵循 20-20-20 法则", "Remind you to relax your eyes on a 20-20-20 cadence")) {
                     settingSwitch(boolBinding(\.eyeBreakEnabled))
@@ -185,7 +186,7 @@ struct SettingsView: View {
             }
 
             Text(localized("20-20-20 法则：每工作 20 分钟，看向至少 6 米外，持续 20 秒。有助于缓解数字眼疲劳。", "20-20-20 rule: every 20 minutes, look at something at least 20 feet away for 20 seconds. It can help reduce digital eye strain."))
-                .font(.system(size: 11))
+                .font(AppFont.font(11))
                 .lineSpacing(3)
                 .foregroundStyle(SettingsStyle.tertiaryText)
                 .padding(.leading, 4)
@@ -193,7 +194,7 @@ struct SettingsView: View {
     }
 
     private var pomodoroTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
             SettingGroup(localized("时长", "Durations")) {
                 SettingRow(localized("专注时长", "Focus duration")) {
                     SettingStepper(value: minutesBinding(\.focusDurationSeconds), range: 5...90, unit: localized("分钟", "min"))
@@ -215,7 +216,7 @@ struct SettingsView: View {
     }
 
     private var timeTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
             SettingGroup(localized("系统集成", "System integration")) {
                 SettingRow(localized("登录时启动", "Launch at login"), sub: localized("macOS 启动后自动运行 EyePomo", "Start EyePomo automatically after macOS login")) {
                     settingSwitch(launchAtLoginBinding)
@@ -241,6 +242,9 @@ struct SettingsView: View {
             }
 
             SettingGroup(localized("覆盖层", "Overlay")) {
+                SettingRow(localized("遮罩色调", "Overlay tint"), sub: localized("暖色更柔和，暗色更接近原始遮罩", "Warm is gentler; dark matches the original dim overlay")) {
+                    OverlayTintSegmentedControl(selection: overlayTintBinding, language: coordinator.appSettings.language)
+                }
                 SettingRow(localized("遮罩透明度", "Overlay opacity"), sub: localized("调整休息遮罩的覆盖强度", "Adjust the visual strength of the rest overlay"), last: true) {
                     OpacityControl(value: opacityBinding)
                 }
@@ -249,7 +253,7 @@ struct SettingsView: View {
     }
 
     private var dataTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
             statusBanner
             dataScopeToolbar
             countCardsRow
@@ -322,11 +326,11 @@ struct SettingsView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(bannerTitle(for: snapshot))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(AppFont.font(13, weight: .medium))
                     .foregroundStyle(SettingsStyle.primaryText)
                 if !snapshot.countdown.isEmpty {
                     Text(snapshot.countdown)
-                        .font(.system(size: 11, design: .monospaced))
+                        .font(AppFont.font(11, design: .monospaced))
                         .foregroundStyle(SettingsStyle.mutedText)
                         .monospacedDigit()
                 }
@@ -340,9 +344,9 @@ struct SettingsView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 13)
         .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
+            RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous)
                 .stroke(accentColor.opacity(0.18), lineWidth: 1)
         )
     }
@@ -350,7 +354,7 @@ struct SettingsView: View {
     private var footerRow: some View {
         HStack(spacing: 12) {
             Text(localized("EyePomo \(coordinator.appVersionString) · 数据仅保存在本机，不会上传到任何服务器", "EyePomo \(coordinator.appVersionString) · Data stays on this Mac and is never uploaded to a server"))
-                .font(.system(size: 11))
+                .font(AppFont.font(11))
                 .foregroundStyle(SettingsStyle.tertiaryText)
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
@@ -361,7 +365,7 @@ struct SettingsView: View {
                 coordinator.showAbout()
             } label: {
                 Label(localized("关于", "About"), systemImage: "info.circle")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AppFont.font(11, weight: .medium))
             }
             .buttonStyle(.plain)
             .foregroundStyle(SettingsStyle.actionBlue)
@@ -536,10 +540,10 @@ struct SettingsView: View {
     private var emptyChartPlaceholder: some View {
         HStack(spacing: 10) {
             Image(systemName: "chart.bar.xaxis")
-                .font(.system(size: 18))
+                .font(AppFont.font(18))
                 .foregroundStyle(SettingsStyle.tertiaryText)
             Text(localized("暂无事件数据，完成一次番茄或眼休后这里会显示统计", "No event data yet. Stats appear after your first Pomodoro or eye break."))
-                .font(.system(size: 11))
+                .font(AppFont.font(11))
                 .foregroundStyle(SettingsStyle.tertiaryText)
                 .lineLimit(2)
             Spacer(minLength: 0)
@@ -597,7 +601,7 @@ struct SettingsView: View {
                             .controlSize(.small)
                             .scaleEffect(0.7)
                         Text(localized("生成中", "Generating"))
-                            .font(.system(size: 11))
+                            .font(AppFont.font(11))
                             .foregroundStyle(SettingsStyle.mutedText)
                     }
                     .frame(width: 96)
@@ -641,9 +645,69 @@ struct SettingsView: View {
 
     private var interfaceGroup: some View {
         SettingGroup(localized("界面", "Interface")) {
+            SettingRow(localized("主题", "Theme"), sub: localized("选择浅色、深色或跟随系统", "Choose light, dark, or match the system")) {
+                GenericSegmentedControl(
+                    options: AppearanceMode.allCases,
+                    selection: coordinator.appSettings.appearance,
+                    labelWidth: nil,
+                    title: { title(for: $0) },
+                    onChange: { coordinator.setAppearance($0) }
+                )
+            }
+            SettingRow(localized("字号", "Font size"), sub: localized("紧凑 / 标准 / 宽松", "Compact / Standard / Comfortable")) {
+                GenericSegmentedControl(
+                    options: FontScale.allCases,
+                    selection: coordinator.appSettings.fontScale,
+                    labelWidth: nil,
+                    title: { title(for: $0) },
+                    onChange: { coordinator.setFontScale($0) }
+                )
+            }
+            SettingRow(localized("强调色", "Accent color"), sub: localized("切换按钮、进度与图表的主色调", "Switch the main color for buttons, progress, and charts")) {
+                AccentPalettePicker(
+                    selection: coordinator.appSettings.accentPalette,
+                    onChange: { coordinator.setAccentPalette($0) }
+                )
+            }
+            SettingRow(localized("界面密度", "Density"), sub: localized("调整卡片圆角与区块间距", "Adjust card corners and section spacing")) {
+                GenericSegmentedControl(
+                    options: AppDensity.allCases,
+                    selection: coordinator.appSettings.density,
+                    labelWidth: nil,
+                    title: { title(for: $0) },
+                    onChange: { coordinator.setDensity($0) }
+                )
+            }
             SettingRow(localized("显示语言", "Display language"), sub: localized("切换设置窗口的显示语言", "Switch the language used in this settings window"), last: true) {
                 LanguageSegmentedControl(selection: languageBinding)
             }
+        }
+    }
+
+    private func title(for mode: AppearanceMode) -> String {
+        let isEnglish = coordinator.appSettings.language == .english
+        switch mode {
+        case .system: return isEnglish ? "Auto" : "跟随系统"
+        case .light: return isEnglish ? "Light" : "浅色"
+        case .dark: return isEnglish ? "Dark" : "深色"
+        }
+    }
+
+    private func title(for scale: FontScale) -> String {
+        let isEnglish = coordinator.appSettings.language == .english
+        switch scale {
+        case .compact: return isEnglish ? "Compact" : "紧凑"
+        case .standard: return isEnglish ? "Standard" : "标准"
+        case .comfortable: return isEnglish ? "Comfortable" : "宽松"
+        }
+    }
+
+    private func title(for density: AppDensity) -> String {
+        let isEnglish = coordinator.appSettings.language == .english
+        switch density {
+        case .compact: return isEnglish ? "Compact" : "紧凑"
+        case .standard: return isEnglish ? "Standard" : "标准"
+        case .comfortable: return isEnglish ? "Comfortable" : "宽松"
         }
     }
 
@@ -740,6 +804,17 @@ struct SettingsView: View {
         )
     }
 
+    private var overlayTintBinding: Binding<OverlayTint> {
+        Binding(
+            get: { coordinator.state.preferences.overlayTint },
+            set: { newValue in
+                var preferences = coordinator.state.preferences
+                preferences.overlayTint = newValue
+                coordinator.updatePreferences(preferences)
+            }
+        )
+    }
+
     private var languageBinding: Binding<SettingsLanguage> {
         Binding(
             get: { coordinator.appSettings.language },
@@ -791,27 +866,70 @@ private enum SettingsTab: CaseIterable, Identifiable {
     }
 }
 
+@MainActor
 enum SettingsStyle {
-    static let outerBackground = Color(red: 26 / 255, green: 26 / 255, blue: 28 / 255)
-    static let windowBackground = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
-    static let titleBarBackground = Color(red: 38 / 255, green: 38 / 255, blue: 40 / 255).opacity(0.98)
-    static let toolbarBackground = Color(red: 32 / 255, green: 32 / 255, blue: 34 / 255).opacity(0.95)
-    static let divider = Color.white.opacity(0.07)
-    static let rowDivider = Color.white.opacity(0.06)
-    static let primaryText = Color(red: 242 / 255, green: 242 / 255, blue: 247 / 255)
-    static let mutedText = Color(red: 142 / 255, green: 142 / 255, blue: 147 / 255)
-    static let secondaryText = Color(red: 99 / 255, green: 99 / 255, blue: 102 / 255)
-    static let tertiaryText = Color(red: 72 / 255, green: 72 / 255, blue: 74 / 255)
+    static let outerBackground = Color.dynamic(
+        light: Color(red: 226 / 255, green: 226 / 255, blue: 230 / 255),
+        dark: Color(red: 26 / 255, green: 26 / 255, blue: 28 / 255)
+    )
+    static let windowBackground = Color.dynamic(
+        light: Color(red: 246 / 255, green: 246 / 255, blue: 248 / 255),
+        dark: Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
+    )
+    static let titleBarBackground = Color.dynamic(
+        light: Color(red: 236 / 255, green: 236 / 255, blue: 240 / 255),
+        dark: Color(red: 38 / 255, green: 38 / 255, blue: 40 / 255)
+    ).opacity(0.98)
+    static let toolbarBackground = Color.dynamic(
+        light: Color(red: 240 / 255, green: 240 / 255, blue: 244 / 255),
+        dark: Color(red: 32 / 255, green: 32 / 255, blue: 34 / 255)
+    ).opacity(0.95)
+    static let divider = Color.dynamic(light: Color.black.opacity(0.08), dark: Color.white.opacity(0.07))
+    static let rowDivider = Color.dynamic(light: Color.black.opacity(0.07), dark: Color.white.opacity(0.06))
+    static let primaryText = Color.dynamic(light: Color.black.opacity(0.86), dark: Color(red: 242 / 255, green: 242 / 255, blue: 247 / 255))
+    static let mutedText = Color.dynamic(light: Color.black.opacity(0.50), dark: Color(red: 142 / 255, green: 142 / 255, blue: 147 / 255))
+    static let secondaryText = Color.dynamic(light: Color.black.opacity(0.42), dark: Color(red: 99 / 255, green: 99 / 255, blue: 102 / 255))
+    static let tertiaryText = Color.dynamic(light: Color.black.opacity(0.32), dark: Color(red: 72 / 255, green: 72 / 255, blue: 74 / 255))
     static let actionBlue = Color(red: 10 / 255, green: 132 / 255, blue: 255 / 255)
-    static let warningRed = Color(red: 255 / 255, green: 69 / 255, blue: 58 / 255)
-    static let monoFont = Font.system(size: 13, weight: .regular, design: .monospaced)
+    static let warningRed = Color.dynamic(
+        light: Color(red: 205 / 255, green: 52 / 255, blue: 44 / 255),
+        dark: Color(red: 255 / 255, green: 69 / 255, blue: 58 / 255)
+    )
+
+    /// 选中态底色（tab、分段控件选中、月份选中）。
+    static let selectionFill = Color.dynamic(light: Color.black.opacity(0.07), dark: Color.white.opacity(0.10))
+    /// 分段控件轨道底色。
+    static let segmentedTrack = Color.dynamic(light: Color.black.opacity(0.05), dark: Color.white.opacity(0.05))
+    /// 细描边。
+    static let hairline = Color.dynamic(light: Color.black.opacity(0.08), dark: Color.white.opacity(0.10))
+    /// 略强的描边（步进按钮等）。
+    static let hairlineStrong = Color.dynamic(light: Color.black.opacity(0.12), dark: Color.white.opacity(0.18))
+    /// 次级填充（步进按钮、进度条轨道）。
+    static let subtleFill = Color.dynamic(light: Color.black.opacity(0.05), dark: Color.white.opacity(0.06))
+    /// Toggle 关闭态轨道。
+    static let toggleTrackOff = Color.dynamic(
+        light: Color(red: 180 / 255, green: 180 / 255, blue: 185 / 255),
+        dark: Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255)
+    )
+    /// Toggle 开启态轨道。
+    static let toggleTrackOn = Color(red: 50 / 255, green: 215 / 255, blue: 75 / 255)
+
+    static var monoFont: Font { AppFont.font(13, weight: .regular, design: .monospaced) }
 
     /// Card / group background. macOS Reduce Transparency expects solid surfaces
     /// instead of half-alpha plates that leak desktop wallpaper through.
+    /// 同时按主题（浅/深）提供两套值。
     static func groupBackground(reduceTransparency: Bool) -> Color {
-        reduceTransparency
-            ? Color(red: 44 / 255, green: 44 / 255, blue: 46 / 255)
-            : Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255).opacity(0.50)
+        if reduceTransparency {
+            return Color.dynamic(
+                light: Color(red: 238 / 255, green: 238 / 255, blue: 240 / 255),
+                dark: Color(red: 44 / 255, green: 44 / 255, blue: 46 / 255)
+            )
+        }
+        return Color.dynamic(
+            light: Color.black.opacity(0.04),
+            dark: Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255).opacity(0.50)
+        )
     }
 }
 
@@ -829,7 +947,7 @@ private struct SettingGroup<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             if let title {
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AppFont.font(11, weight: .medium))
                     .foregroundStyle(SettingsStyle.secondaryText)
                     .textCase(.uppercase)
                     .tracking(0.6)
@@ -840,7 +958,7 @@ private struct SettingGroup<Content: View>: View {
                 content
             }
             .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
         }
     }
 }
@@ -862,11 +980,11 @@ private struct SettingRow<Trailing: View>: View {
         HStack(alignment: .center, spacing: 24) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(label)
-                    .font(.system(size: 13))
+                    .font(AppFont.font(13))
                     .foregroundStyle(SettingsStyle.primaryText)
                 if let sub {
                     Text(sub)
-                        .font(.system(size: 11))
+                        .font(AppFont.font(11))
                         .lineSpacing(2)
                         .foregroundStyle(SettingsStyle.secondaryText)
                         .lineLimit(2)
@@ -903,7 +1021,7 @@ private struct SettingSwitch: View {
             isOn.toggle()
         } label: {
             Capsule()
-                .fill(isOn ? Color(red: 50 / 255, green: 215 / 255, blue: 75 / 255) : Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255))
+                .fill(isOn ? SettingsStyle.toggleTrackOn : SettingsStyle.toggleTrackOff)
                 .frame(width: 42, height: 25)
                 .overlay(alignment: isOn ? .trailing : .leading) {
                     Circle()
@@ -929,23 +1047,23 @@ private struct LanguageSegmentedControl: View {
                     selection = language
                 } label: {
                     Text(title(for: language))
-                        .font(.system(size: 12, weight: selection == language ? .medium : .regular))
+                        .font(AppFont.font(12, weight: selection == language ? .medium : .regular))
                         .foregroundStyle(selection == language ? SettingsStyle.primaryText : SettingsStyle.mutedText)
                         .frame(width: 72, height: 24)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(selection == language ? Color.white.opacity(0.10) : .clear)
+                                .fill(selection == language ? SettingsStyle.selectionFill : .clear)
                         )
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(3)
-        .background(Color.white.opacity(0.05))
+        .background(SettingsStyle.segmentedTrack)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(SettingsStyle.hairline, lineWidth: 1)
         )
     }
 
@@ -955,6 +1073,76 @@ private struct LanguageSegmentedControl: View {
             return "中文"
         case .english:
             return "English"
+        }
+    }
+}
+
+/// 通用分段控件，用于主题/字号/密度等多档位选择。
+private struct GenericSegmentedControl<Option: Hashable & Identifiable>: View {
+    let options: [Option]
+    let selection: Option
+    let labelWidth: CGFloat?
+    let title: (Option) -> String
+    let onChange: (Option) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.id) { option in
+                Button {
+                    onChange(option)
+                } label: {
+                    Text(title(option))
+                        .font(AppFont.font(12, weight: selection == option ? .medium : .regular))
+                        .foregroundStyle(selection == option ? SettingsStyle.primaryText : SettingsStyle.mutedText)
+                        .frame(width: labelWidth, height: 24)
+                        .padding(.horizontal, labelWidth == nil ? 12 : 0)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(selection == option ? SettingsStyle.selectionFill : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(SettingsStyle.segmentedTrack)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(SettingsStyle.hairline, lineWidth: 1)
+        )
+    }
+}
+
+/// 强调色预设选择器，用色块直观展示每套 teal/tomato。
+private struct AccentPalettePicker: View {
+    let selection: AccentPalette
+    let onChange: (AccentPalette) -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(AccentPalette.allCases) { palette in
+                Button {
+                    onChange(palette)
+                } label: {
+                    ZStack {
+                        Circle()
+                            .fill(LinearGradient(
+                                colors: [AppPalette.teal(for: palette), AppPalette.tomato(for: palette)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ))
+                            .frame(width: 18, height: 18)
+                        if palette == selection {
+                            Circle()
+                                .stroke(SettingsStyle.primaryText, lineWidth: 2)
+                                .frame(width: 24, height: 24)
+                        }
+                    }
+                    .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 }
@@ -985,12 +1173,12 @@ private struct SettingStepper: View {
     private func stepperButton(symbol: String, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(symbol)
-                .font(.system(size: 15, weight: .medium))
+                .font(AppFont.font(15, weight: .medium))
                 .foregroundStyle(disabled ? SettingsStyle.tertiaryText : SettingsStyle.mutedText)
                 .frame(width: 22, height: 22)
-                .background(Color.white.opacity(disabled ? 0.03 : 0.06))
+                .background(SettingsStyle.subtleFill.opacity(disabled ? 0.5 : 1))
                 .clipShape(Circle())
-                .overlay(Circle().stroke(Color.white.opacity(0.18), lineWidth: 1))
+                .overlay(Circle().stroke(SettingsStyle.hairlineStrong, lineWidth: 1))
         }
         .buttonStyle(.plain)
         .disabled(disabled)
@@ -1006,10 +1194,61 @@ private struct OpacityControl: View {
                 .tint(EyePomoTheme.teal)
                 .frame(width: 120)
             Text("\(Int(value * 100))%")
-                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                .font(AppFont.font(11, weight: .regular, design: .monospaced))
                 .foregroundStyle(SettingsStyle.secondaryText)
                 .monospacedDigit()
                 .frame(width: 34, alignment: .trailing)
+        }
+    }
+}
+
+private struct OverlayTintSegmentedControl: View {
+    @Binding var selection: OverlayTint
+    let language: SettingsLanguage
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(OverlayTint.allCases, id: \.self) { tint in
+                Button {
+                    selection = tint
+                } label: {
+                    Label(title(for: tint), systemImage: symbol(for: tint))
+                        .font(AppFont.font(12, weight: selection == tint ? .medium : .regular))
+                        .foregroundStyle(selection == tint ? SettingsStyle.primaryText : SettingsStyle.mutedText)
+                        .frame(width: 76, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(selection == tint ? SettingsStyle.selectionFill : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(SettingsStyle.segmentedTrack)
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(SettingsStyle.hairline, lineWidth: 1)
+        )
+    }
+
+    private func title(for tint: OverlayTint) -> String {
+        let isEnglish = language == .english
+        switch tint {
+        case .warm:
+            return isEnglish ? "Warm" : "暖色"
+        case .dark:
+            return isEnglish ? "Dark" : "暗色"
+        }
+    }
+
+    private func symbol(for tint: OverlayTint) -> String {
+        switch tint {
+        case .warm:
+            return "sun.max"
+        case .dark:
+            return "moon"
         }
     }
 }
@@ -1025,26 +1264,26 @@ private struct SummaryCard: View {
         VStack(spacing: 5) {
             HStack(alignment: .firstTextBaseline, spacing: 3) {
                 Text(value)
-                    .font(.system(size: 24, weight: .medium, design: .monospaced))
+                    .font(AppFont.font(24, weight: .medium, design: .monospaced))
                     .foregroundStyle(color)
                     .monospacedDigit()
                 if !unit.isEmpty {
                     Text(unit)
-                        .font(.system(size: 11))
+                        .font(AppFont.font(11))
                         .foregroundStyle(color.opacity(0.7))
                 }
             }
             .lineLimit(1)
 
             Text(label)
-                .font(.system(size: 10.5))
+                .font(AppFont.font(10.5))
                 .foregroundStyle(SettingsStyle.tertiaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
         .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
     }
 }
 
@@ -1064,7 +1303,7 @@ private struct ChartPanel<Content: View>: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(title)
-                    .font(.system(size: 11, weight: .medium))
+                    .font(AppFont.font(11, weight: .medium))
                     .foregroundStyle(SettingsStyle.mutedText)
                     .textCase(.uppercase)
                     .tracking(0.6)
@@ -1076,7 +1315,7 @@ private struct ChartPanel<Content: View>: View {
                                 .fill(item.1.opacity(0.85))
                                 .frame(width: 8, height: 8)
                             Text(item.0)
-                                .font(.system(size: 10.5))
+                                .font(AppFont.font(10.5))
                                 .foregroundStyle(SettingsStyle.secondaryText)
                         }
                     }
@@ -1089,7 +1328,7 @@ private struct ChartPanel<Content: View>: View {
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
         .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
     }
 }
 
@@ -1122,7 +1361,7 @@ private struct MiniBarChart: View {
             ForEach(bars) { bar in
                 VStack(spacing: 7) {
                     Text(valueCaption(bar.value))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .font(AppFont.font(11, weight: .medium, design: .monospaced))
                         .foregroundStyle(bar.value > 0 ? bar.color : SettingsStyle.tertiaryText)
                         .monospacedDigit()
 
@@ -1140,7 +1379,7 @@ private struct MiniBarChart: View {
                     .frame(width: 28, height: 100)
 
                     Text(bar.label)
-                        .font(.system(size: 10.5))
+                        .font(AppFont.font(10.5))
                         .foregroundStyle(SettingsStyle.secondaryText)
                 }
                 .frame(maxWidth: .infinity)
@@ -1208,7 +1447,7 @@ private struct TrendBarChart: View {
 
         return VStack(spacing: 6) {
             Text(count > 0 ? "\(count)" : "—")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .font(AppFont.font(11, weight: .medium, design: .monospaced))
                 .foregroundStyle(count > 0 ? color : SettingsStyle.tertiaryText)
                 .monospacedDigit()
 
@@ -1227,11 +1466,11 @@ private struct TrendBarChart: View {
 
             VStack(spacing: 1) {
                 Text(weekdayFormatter.string(from: date))
-                    .font(.system(size: 9.5, weight: isToday ? .medium : .regular))
+                    .font(AppFont.font(9.5, weight: isToday ? .medium : .regular))
                     .foregroundStyle(isToday ? SettingsStyle.primaryText : SettingsStyle.secondaryText)
                     .textCase(.uppercase)
                 Text(Self.shortDayFormatter.string(from: date))
-                    .font(.system(size: 9, design: .monospaced))
+                    .font(AppFont.font(9, design: .monospaced))
                     .foregroundStyle(SettingsStyle.tertiaryText)
                     .monospacedDigit()
             }
@@ -1248,7 +1487,7 @@ private struct DataActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12))
+                .font(AppFont.font(12))
                 .foregroundStyle(color)
                 .padding(.vertical, 4)
                 .padding(.horizontal, 14)
@@ -1276,7 +1515,7 @@ private struct StatusBar: View {
         GeometryReader { proxy in
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(SettingsStyle.subtleFill)
                 Capsule()
                     .fill(accent.opacity(0.85))
                     .frame(width: max(2, proxy.size.width * clamped))
@@ -1340,23 +1579,23 @@ private struct DataScopeSegmentedControl: View {
                     onChange(scope)
                 } label: {
                     Text(title(for: scope))
-                        .font(.system(size: 12, weight: selection == scope ? .medium : .regular))
+                        .font(AppFont.font(12, weight: selection == scope ? .medium : .regular))
                         .foregroundStyle(selection == scope ? SettingsStyle.primaryText : SettingsStyle.mutedText)
                         .frame(width: 56, height: 24)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(selection == scope ? Color.white.opacity(0.10) : .clear)
+                                .fill(selection == scope ? SettingsStyle.selectionFill : .clear)
                         )
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(3)
-        .background(Color.white.opacity(0.05))
+        .background(SettingsStyle.segmentedTrack)
         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(SettingsStyle.hairline, lineWidth: 1)
         )
     }
 
@@ -1383,7 +1622,7 @@ private struct YearStepper: View {
                 }
             }
             Text("\(year)")
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(AppFont.font(12, weight: .medium, design: .monospaced))
                 .foregroundStyle(SettingsStyle.primaryText)
                 .monospacedDigit()
                 .frame(minWidth: 48)
@@ -1398,10 +1637,10 @@ private struct YearStepper: View {
     private func scopeButton(systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 10, weight: .semibold))
+                .font(AppFont.font(10, weight: .semibold))
                 .foregroundStyle(SettingsStyle.mutedText)
                 .frame(width: 22, height: 22)
-                .background(Color.white.opacity(0.05))
+                .background(SettingsStyle.segmentedTrack)
                 .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -1418,7 +1657,7 @@ private struct MonthPicker: View {
         HStack(spacing: 4) {
             yearStepperCompact
             Text(String(format: "%04d", year))
-                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .font(AppFont.font(12, weight: .medium, design: .monospaced))
                 .foregroundStyle(SettingsStyle.secondaryText)
                 .monospacedDigit()
             monthSegmented
@@ -1431,7 +1670,7 @@ private struct MonthPicker: View {
                 if year > 2000 { year -= 1 }
             } label: {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(AppFont.font(9, weight: .semibold))
                     .foregroundStyle(SettingsStyle.mutedText)
                     .frame(width: 18, height: 18)
             }
@@ -1440,7 +1679,7 @@ private struct MonthPicker: View {
                 if year < currentYear + 1 { year += 1 }
             } label: {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
+                    .font(AppFont.font(9, weight: .semibold))
                     .foregroundStyle(SettingsStyle.mutedText)
                     .frame(width: 18, height: 18)
             }
@@ -1455,12 +1694,12 @@ private struct MonthPicker: View {
                     month = m
                 } label: {
                     Text("\(m)")
-                        .font(.system(size: 10, weight: month == m ? .semibold : .regular))
+                        .font(AppFont.font(10, weight: month == m ? .semibold : .regular))
                         .foregroundStyle(month == m ? SettingsStyle.primaryText : SettingsStyle.mutedText)
                         .frame(width: 18, height: 18)
                         .background(
                             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                .fill(month == m ? Color.white.opacity(0.10) : .clear)
+                                .fill(month == m ? SettingsStyle.selectionFill : .clear)
                         )
                 }
                 .buttonStyle(.plain)

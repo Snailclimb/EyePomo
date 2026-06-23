@@ -24,6 +24,40 @@ struct AppReducerTests {
         #expect(state.preferences.eyeBreakDurationSeconds == 20)
     }
 
+    @Test("AppPreferences decodes old data without overlay tint")
+    func appPreferencesDecodeOldDataWithoutOverlayTint() throws {
+        let json = """
+        {
+          "eyeBreakEnabled": false,
+          "overlayEnabled": true,
+          "overlayOpacity": 0.66,
+          "focusDurationSeconds": 1800
+        }
+        """.data(using: .utf8)!
+
+        let preferences = try JSONDecoder().decode(AppPreferences.self, from: json)
+
+        #expect(preferences.eyeBreakEnabled == false)
+        #expect(preferences.overlayEnabled == true)
+        #expect(preferences.overlayOpacity == 0.66)
+        #expect(preferences.focusDurationSeconds == 1800)
+        #expect(preferences.overlayTint == .warm)
+        #expect(preferences.eyeBreakDurationSeconds == 20)
+    }
+
+    @Test("Display snapshot hides the next eye break when eye reminders are disabled")
+    func displaySnapshotHidesEyeBreakWhenDisabled() {
+        let state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(eyeBreakEnabled: false))
+
+        let snapshot = state.displaySnapshot(at: .init(milliseconds: 0))
+
+        #expect(snapshot.statusTitle == "Eye breaks off")
+        #expect(snapshot.stateLabel == "眼休已关闭")
+        #expect(snapshot.countdown.isEmpty)
+        #expect(snapshot.progress == 0)
+        #expect(snapshot.accent == .neutral)
+    }
+
     @Test("Pomodoro pause and resume preserve remaining duration")
     func pomodoroPauseResume() {
         var state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(workHoursEnabled: false))

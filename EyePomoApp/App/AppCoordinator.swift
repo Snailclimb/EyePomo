@@ -24,6 +24,7 @@ final class AppCoordinator: ObservableObject {
     private let settingsWindowController = SettingsWindowController()
     private var idleMonitor: IdleMonitor?
     private var workspaceEventMonitor: WorkspaceEventMonitor?
+    private var appearanceObserver: NSKeyValueObservation?
 
     init() {
         var calendar = Calendar(identifier: .gregorian)
@@ -41,6 +42,7 @@ final class AppCoordinator: ObservableObject {
         self.currentInstant = now
         self.state = restoredState
         self.todaySummary = DailySummary(dayKey: WorkHoursPolicy.dayKey(Date(), calendar: calendar))
+        syncAppearanceGlobals()
     }
 
     func start() {
@@ -73,6 +75,12 @@ final class AppCoordinator: ObservableObject {
             }
         }
 
+        appearanceObserver = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor in
+                self?.handleSystemAppearanceChange()
+            }
+        }
+
         runUIDiagnosticsIfRequested()
     }
 
@@ -81,6 +89,10 @@ final class AppCoordinator: ObservableObject {
         timer = nil
         idleMonitor?.stop()
         workspaceEventMonitor?.stop()
+        if let appearanceObserver {
+            appearanceObserver.invalidate()
+            self.appearanceObserver = nil
+        }
         stateStore.save(state, now: currentInstant, wallDate: Date(), paths: dataPaths)
     }
 
@@ -149,6 +161,75 @@ final class AppCoordinator: ObservableObject {
         settings.language = language
         appSettings = settings
         appSettingsStore.save(settings)
+    }
+
+    func setAppearance(_ mode: AppearanceMode) {
+        guard appSettings.appearance != mode else {
+            return
+        }
+
+        var settings = appSettings
+        settings.appearance = mode
+        appSettings = settings
+        appSettingsStore.save(settings)
+        applyAppearanceAcrossWindows()
+    }
+
+    func setFontScale(_ scale: FontScale) {
+        guard appSettings.fontScale != scale else {
+            return
+        }
+
+        var settings = appSettings
+        settings.fontScale = scale
+        appSettings = settings
+        AppFont.scale = scale.multiplier
+        appSettingsStore.save(settings)
+    }
+
+    func setAccentPalette(_ palette: AccentPalette) {
+        guard appSettings.accentPalette != palette else {
+            return
+        }
+
+        var settings = appSettings
+        settings.accentPalette = palette
+        appSettings = settings
+        AppPalette.current = palette
+        appSettingsStore.save(settings)
+    }
+
+    func setDensity(_ density: AppDensity) {
+        guard appSettings.density != density else {
+            return
+        }
+
+        var settings = appSettings
+        settings.density = density
+        appSettings = settings
+        AppDensityProfile.current = density
+        appSettingsStore.save(settings)
+    }
+
+    /// 将外观相关全局值（字号、强调色、密度）同步到当前 `appSettings`。
+    private func syncAppearanceGlobals() {
+        AppFont.scale = appSettings.fontScale.multiplier
+        AppPalette.current = appSettings.accentPalette
+        AppDensityProfile.current = appSettings.density
+    }
+
+    /// 将外观模式应用到所有已显示的 AppKit 容器（settings 窗口、菜单栏 popover）。
+    private func applyAppearanceAcrossWindows() {
+        let mode = appSettings.appearance
+        settingsWindowController.applyAppearance(mode)
+        statusItemController.applyAppearance(mode)
+    }
+
+    private func handleSystemAppearanceChange() {
+        guard appSettings.appearance == .system else {
+            return
+        }
+        applyAppearanceAcrossWindows()
     }
 
     func showSettings() {

@@ -24,6 +24,18 @@ func initialStateSchedulesEyeBreak() throws {
 }
 
 @MainActor
+func displaySnapshotHidesEyeBreakWhenDisabled() throws {
+    let state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(eyeBreakEnabled: false))
+    let snapshot = state.displaySnapshot(at: .init(milliseconds: 0))
+
+    try check(snapshot.statusTitle == "Eye breaks off", "disabled eye reminders should not show the next eye break status title")
+    try check(snapshot.stateLabel == "眼休已关闭", "disabled eye reminders should show disabled state label")
+    try check(snapshot.countdown.isEmpty, "disabled eye reminders should not show an eye break countdown")
+    try check(snapshot.progress == 0, "disabled eye reminders should not show eye break progress")
+    try check(snapshot.accent == .neutral, "disabled eye reminders should use neutral accent")
+}
+
+@MainActor
 func pomodoroPauseResume() throws {
     var state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(workHoursEnabled: false))
 
@@ -238,6 +250,7 @@ func summaryAndMarkdownFromEvents() throws {
 
 let validations: [(String, @MainActor () throws -> Void)] = [
     ("initialStateSchedulesEyeBreak", initialStateSchedulesEyeBreak),
+    ("displaySnapshotHidesEyeBreakWhenDisabled", displaySnapshotHidesEyeBreakWhenDisabled),
     ("pomodoroPauseResume", pomodoroPauseResume),
     ("fourthFocusStartsLongBreak", fourthFocusStartsLongBreak),
     ("eyeBreakDueNearFocusEndDefers", eyeBreakDueNearFocusEndDefers),
