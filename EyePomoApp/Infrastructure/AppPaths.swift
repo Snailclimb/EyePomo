@@ -1,27 +1,33 @@
 import Foundation
 
-enum AppPaths {
+struct AppPaths: Sendable, Equatable {
     static let bundleIdentifier = "com.snailclimb.EyePomo"
 
-    static var applicationSupportDirectory: URL {
+    static var defaultApplicationSupportDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return base.appendingPathComponent("EyePomo", isDirectory: true)
     }
 
-    static var logsDirectory: URL {
+    var applicationSupportDirectory: URL
+
+    init(applicationSupportDirectory: URL = Self.defaultApplicationSupportDirectory) {
+        self.applicationSupportDirectory = applicationSupportDirectory.standardizedFileURL
+    }
+
+    var logsDirectory: URL {
         applicationSupportDirectory.appendingPathComponent("Logs", isDirectory: true)
     }
 
-    static var journalsDirectory: URL {
+    var journalsDirectory: URL {
         applicationSupportDirectory.appendingPathComponent("Journals", isDirectory: true)
     }
 
-    static var stateURL: URL {
+    var stateURL: URL {
         applicationSupportDirectory.appendingPathComponent("state.json")
     }
 
-    static func ensureBaseDirectories() {
-        try? FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
-        try? FileManager.default.createDirectory(at: journalsDirectory, withIntermediateDirectories: true)
+    func ensureBaseDirectories() throws {
+        try FileManager.default.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: journalsDirectory, withIntermediateDirectories: true)
     }
 }

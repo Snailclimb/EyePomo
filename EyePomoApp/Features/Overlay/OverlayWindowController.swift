@@ -6,6 +6,10 @@ import SwiftUI
 final class OverlayWindowController {
     private var panels: [NSPanel] = []
 
+    var visiblePanelCountForDiagnostics: Int {
+        panels.filter(\.isVisible).count
+    }
+
     func show(request: OverlayRequest, coordinator: AppCoordinator) {
         dismiss()
 
@@ -19,10 +23,15 @@ final class OverlayWindowController {
             )
             panel.level = .statusBar
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+            panel.isFloatingPanel = true
+            panel.becomesKeyOnlyIfNeeded = true
+            panel.tabbingMode = .disallowed
+            panel.animationBehavior = .none
             panel.backgroundColor = .clear
             panel.isOpaque = false
             panel.hidesOnDeactivate = false
             panel.hasShadow = false
+            panel.setFrame(screen.frame, display: true)
             panel.contentViewController = NSHostingController(
                 rootView: OverlayView(coordinator: coordinator, request: request)
             )

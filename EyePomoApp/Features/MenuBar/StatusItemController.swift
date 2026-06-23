@@ -28,6 +28,10 @@ final class StatusItemController: NSObject {
         button.imagePosition = .imageLeading
     }
 
+    var isInstalledForDiagnostics: Bool {
+        statusItem.button != nil
+    }
+
     func update(snapshot: DisplaySnapshot) {
         latestSnapshot = snapshot
         guard let button = statusItem.button else {
@@ -45,7 +49,7 @@ final class StatusItemController: NSObject {
             return
         }
         if event.type == .rightMouseUp {
-            showMenu()
+            showMenu(from: sender)
         } else {
             togglePopover(sender)
         }
@@ -60,8 +64,9 @@ final class StatusItemController: NSObject {
         }
     }
 
-    private func showMenu() {
+    private func showMenu(from button: NSStatusBarButton) {
         let menu = NSMenu()
+        menu.autoenablesItems = false
         menu.addItem(menuItem("暂停提醒 1 小时", action: #selector(pauseForOneHour)))
         menu.addItem(menuItem("今日不再提醒", action: #selector(muteToday)))
         menu.addItem(.separator())
@@ -70,9 +75,7 @@ final class StatusItemController: NSObject {
         menu.addItem(.separator())
         menu.addItem(menuItem("退出 EyePomo", action: #selector(quit)))
 
-        statusItem.menu = menu
-        statusItem.button?.performClick(nil)
-        statusItem.menu = nil
+        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.height + 2), in: button)
     }
 
     private func menuItem(_ title: String, action: Selector) -> NSMenuItem {

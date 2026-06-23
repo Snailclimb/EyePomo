@@ -30,7 +30,7 @@ final class IdleMonitor {
     }
 
     private func poll() {
-        let idleSeconds = Int(CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .mouseMoved))
+        let idleSeconds = Int(CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: UInt32.max)!))
         lastIdleSeconds = max(lastIdleSeconds, idleSeconds)
 
         if idleSeconds >= threshold(), !isIdle {

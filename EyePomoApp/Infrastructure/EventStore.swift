@@ -2,9 +2,9 @@ import EyePomoCore
 import Foundation
 
 actor EventStore {
-    func append(_ event: EventEnvelope) throws {
-        AppPaths.ensureBaseDirectories()
-        let url = logURL(for: event.occurredAt)
+    func append(_ event: EventEnvelope, paths: AppPaths) throws {
+        try paths.ensureBaseDirectories()
+        let url = logURL(for: event.occurredAt, paths: paths)
         let line = try EventLogCodec.encodeLine(event) + "\n"
         let data = Data(line.utf8)
 
@@ -18,10 +18,10 @@ actor EventStore {
         }
     }
 
-    func loadAllEvents() -> EventLogDecodeResult {
-        AppPaths.ensureBaseDirectories()
+    func loadAllEvents(paths: AppPaths) -> EventLogDecodeResult {
+        try? paths.ensureBaseDirectories()
         let urls = (try? FileManager.default.contentsOfDirectory(
-            at: AppPaths.logsDirectory,
+            at: paths.logsDirectory,
             includingPropertiesForKeys: nil
         )) ?? []
 
@@ -46,8 +46,8 @@ actor EventStore {
         )
     }
 
-    func regenerateJournal(for day: Date, preferences: AppPreferences, calendar: Calendar) throws -> DailySummary {
-        let decoded = loadAllEvents()
+    func regenerateJournal(for day: Date, preferences: AppPreferences, calendar: Calendar, paths: AppPaths) throws -> DailySummary {
+        let decoded = loadAllEvents(paths: paths)
         let summary = DailySummaryBuilder.build(events: decoded.events, day: day, calendar: calendar)
         let markdown = MarkdownJournalRenderer.render(
             summary: summary,
@@ -56,18 +56,18 @@ actor EventStore {
             recoveredCorruptFinalLine: decoded.recoveredCorruptFinalLine
         )
 
-        AppPaths.ensureBaseDirectories()
-        let url = AppPaths.journalsDirectory.appendingPathComponent("\(summary.dayKey).md")
+        try paths.ensureBaseDirectories()
+        let url = paths.journalsDirectory.appendingPathComponent("\(summary.dayKey).md")
         try markdown.write(to: url, atomically: true, encoding: .utf8)
         return summary
     }
 
-    private func logURL(for date: Date) -> URL {
+    private func logURL(for date: Date, paths: AppPaths) -> URL {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
         let components = calendar.dateComponents([.year, .month], from: date)
         let year = components.year ?? 1970
         let month = components.month ?? 1
-        return AppPaths.logsDirectory.appendingPathComponent(String(format: "events-%04d-%02d.jsonl", year, month))
+        return paths.logsDirectory.appendingPathComponent(String(format: "events-%04d-%02d.jsonl", year, month))
     }
 }

@@ -8,8 +8,8 @@ struct AppStateStore {
         var state: AppState
     }
 
-    func load(now: AppInstant, wallDate: Date) -> AppState? {
-        guard let data = try? Data(contentsOf: AppPaths.stateURL),
+    func load(now: AppInstant, wallDate: Date, paths: AppPaths) -> AppState? {
+        guard let data = try? Data(contentsOf: paths.stateURL),
               let snapshot = try? JSONDecoder().decode(Snapshot.self, from: data)
         else {
             return nil
@@ -39,12 +39,12 @@ struct AppStateStore {
         return state
     }
 
-    func save(_ state: AppState, now: AppInstant, wallDate: Date) {
-        AppPaths.ensureBaseDirectories()
+    func save(_ state: AppState, now: AppInstant, wallDate: Date, paths: AppPaths) {
+        try? paths.ensureBaseDirectories()
         let snapshot = Snapshot(savedAt: wallDate, uptimeMilliseconds: now.milliseconds, state: state)
         guard let data = try? JSONEncoder().encode(snapshot) else {
             return
         }
-        try? data.write(to: AppPaths.stateURL, options: .atomic)
+        try? data.write(to: paths.stateURL, options: .atomic)
     }
 }
