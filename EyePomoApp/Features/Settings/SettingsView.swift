@@ -4,6 +4,14 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject var coordinator: AppCoordinator
     @State private var selectedTab: SettingsTab = .eye
+    @State private var isRefreshingJournal = false
+    @State private var trendSummaries: [DailySummary] = []
+    @State private var dataScope: DataScope = .today
+    @State private var selectedYear: Int = Calendar.current.component(.year, from: Date())
+    @State private var selectedMonth: Int = Calendar.current.component(.month, from: Date())
+    @State private var scopeSummaries: [String: DailySummary] = [:]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         ZStack {
@@ -30,6 +38,60 @@ struct SettingsView: View {
         .frame(minWidth: 620, minHeight: 560)
         .font(.system(size: 13))
         .foregroundStyle(SettingsStyle.primaryText)
+        .onAppear {
+            refreshTrendIfNeeded()
+            refreshScopeSummariesIfNeeded()
+        }
+        .onChange(of: selectedTab) { newTab in
+            if newTab == .data {
+                refreshTrendIfNeeded()
+                refreshScopeSummariesIfNeeded()
+            }
+        }
+        .onChange(of: coordinator.todaySummary) { _ in
+            if selectedTab == .data {
+                refreshTrendIfNeeded()
+                if dataScope == .today {
+                    // Today is covered by `coordinator.todaySummary` directly.
+                } else {
+                    refreshScopeSummariesIfNeeded()
+                }
+            }
+        }
+        .onChange(of: dataScope) { _ in
+            refreshScopeSummariesIfNeeded()
+        }
+        .onChange(of: selectedYear) { _ in
+            refreshScopeSummariesIfNeeded()
+        }
+        .onChange(of: selectedMonth) { _ in
+            refreshScopeSummariesIfNeeded()
+        }
+    }
+
+    private func refreshTrendIfNeeded() {
+        Task { @MainActor in
+            let summaries = await coordinator.loadRecentSummaries(dayCount: 7)
+            trendSummaries = summaries
+        }
+    }
+
+    private func refreshScopeSummariesIfNeeded() {
+        let scope = dataScope
+        let year = selectedYear
+        let month = selectedMonth
+        Task { @MainActor in
+            let summaries: [String: DailySummary]
+            switch scope {
+            case .today:
+                summaries = [:]
+            case .month:
+                summaries = await coordinator.loadSummaries(forMonth: month, ofYear: year)
+            case .year:
+                summaries = await coordinator.loadSummaries(forYear: year)
+            }
+            scopeSummaries = summaries
+        }
     }
 
     private var titleBar: some View {
@@ -188,88 +250,414 @@ struct SettingsView: View {
 
     private var dataTab: some View {
         VStack(alignment: .leading, spacing: 20) {
-            HStack(spacing: 8) {
-                SummaryCard(label: localized("今日番茄", "Today Pomodoros"), value: "\(coordinator.todaySummary.focusSessionsCompleted)", unit: localized("个", ""), color: EyePomoTheme.tomato)
-                SummaryCard(label: localized("专注时长", "Focus Time"), value: focusHoursText, unit: localized("小时", "h"), color: SettingsStyle.primaryText)
-                SummaryCard(label: localized("眼休次数", "Eye Breaks"), value: "\(coordinator.todaySummary.eyeBreaksCompleted)", unit: localized("次", ""), color: EyePomoTheme.teal)
+            statusBanner
+            dataScopeToolbar
+            countCardsRow
+            durationCardsRow
+            breakChartPanel
+            trendPanel
+            if dataScope == .year {
+                yearHeatmapPanel
             }
+            dataManagementGroup
+            interfaceGroup
 
-            ChartPanel(
-                title: localized("今日概览", "Today"),
-                legend: [(localized("番茄", "Pomodoros"), EyePomoTheme.tomato), (localized("眼休", "Eye breaks"), EyePomoTheme.teal)]
-            ) {
-                MiniBarChart(
-                    bars: [
-                        MiniBar(label: localized("番茄", "Pom."), value: max(1, Double(coordinator.todaySummary.focusSessionsCompleted)), color: EyePomoTheme.tomato),
-                        MiniBar(label: localized("分钟", "Min"), value: max(1, Double(coordinator.todaySummary.focusMinutes)), color: SettingsStyle.primaryText),
-                        MiniBar(label: localized("眼休", "Eyes"), value: max(1, Double(coordinator.todaySummary.eyeBreaksCompleted)), color: EyePomoTheme.teal),
-                        MiniBar(label: localized("跳过", "Skip"), value: max(1, Double(coordinator.todaySummary.eyeBreaksSkipped)), color: SettingsStyle.warningRed)
-                    ]
-                )
-            }
-
-            SettingGroup(localized("界面", "Interface")) {
-                SettingRow(localized("显示语言", "Display language"), sub: localized("切换设置窗口的显示语言", "Switch the language used in this settings window"), last: true) {
-                    LanguageSegmentedControl(selection: languageBinding)
-                }
-            }
-
-            SettingGroup(localized("数据管理", "Data management")) {
-                SettingRow(localized("数据存储位置", "Data storage location"), sub: coordinator.dataDirectoryPath) {
-                    HStack(spacing: 8) {
-                        DataActionButton(title: localized("选择", "Choose"), color: SettingsStyle.actionBlue) {
-                            coordinator.chooseDataDirectory()
-                        }
-                        DataActionButton(title: localized("打开", "Open"), color: EyePomoTheme.teal) {
-                            coordinator.openDataDirectory()
-                        }
-                    }
-                }
-                SettingRow(localized("日志目录", "Log folder"), sub: coordinator.logsDirectoryPath) {
-                    DataActionButton(title: localized("打开", "Open"), color: SettingsStyle.actionBlue) {
-                        coordinator.openLogsDirectory()
-                    }
-                }
-                SettingRow(localized("Markdown 摘要", "Markdown summaries"), sub: localized("每日摘要由本地事件日志生成", "Daily summaries are generated from local event logs")) {
-                    DataActionButton(title: localized("本地", "Local"), color: EyePomoTheme.teal) {}
-                        .disabled(true)
-                }
-                SettingRow(localized("恢复默认位置", "Restore default location"), sub: localized("切换回系统 Application Support 目录", "Switch back to the system Application Support folder"), last: true) {
-                    DataActionButton(title: localized("恢复", "Reset"), color: SettingsStyle.warningRed) {
-                        coordinator.resetDataDirectoryToDefault()
-                    }
-                }
-            }
-
-            HStack(spacing: 12) {
-                Text(localized("EyePomo \(coordinator.appVersionString) · 数据仅保存在本机，不会上传到任何服务器", "EyePomo \(coordinator.appVersionString) · Data stays on this Mac and is never uploaded to a server"))
-                    .font(.system(size: 11))
-                    .foregroundStyle(SettingsStyle.tertiaryText)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-
-                Spacer(minLength: 0)
-
-                Button {
-                    coordinator.showAbout()
-                } label: {
-                    Label(localized("关于", "About"), systemImage: "info.circle")
-                        .font(.system(size: 11, weight: .medium))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(SettingsStyle.actionBlue)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.top, -4)
+            footerRow
         }
     }
 
-    private var focusHoursText: String {
-        let hours = Double(coordinator.todaySummary.focusMinutes) / 60
-        if hours < 1 {
-            return String(format: "%.1f", hours)
+    private var dataScopeToolbar: some View {
+        HStack(spacing: 10) {
+            DataScopeSegmentedControl(
+                selection: dataScope,
+                language: coordinator.appSettings.language
+            ) { newScope in
+                dataScope = newScope
+            }
+
+            Spacer(minLength: 0)
+
+            scopeSelector
         }
+    }
+
+    @ViewBuilder
+    private var scopeSelector: some View {
+        switch dataScope {
+        case .today:
+            EmptyView()
+        case .month:
+            MonthPicker(year: $selectedYear, month: $selectedMonth)
+        case .year:
+            YearStepper(year: $selectedYear, language: coordinator.appSettings.language)
+        }
+    }
+
+    private var yearHeatmapPanel: some View {
+        ChartPanel(
+            title: localized("\(selectedYear) 年热力图", "\(selectedYear) Heatmap"),
+            legend: [(localized("番茄数", "Pomodoros"), EyePomoTheme.teal)]
+        ) {
+            if scopeSummaries.isEmpty {
+                emptyChartPlaceholder
+            } else {
+                YearHeatmapView(
+                    year: selectedYear,
+                    summaries: scopeSummaries,
+                    reduceTransparency: reduceTransparency,
+                    locale: coordinator.appSettings.language == .english
+                        ? Locale(identifier: "en_US_POSIX")
+                        : Locale(identifier: "zh_CN")
+                )
+            }
+        }
+    }
+
+    private var statusBanner: some View {
+        let snapshot = coordinator.state.displaySnapshot(at: coordinator.currentInstant)
+        let accentColor = bannerColor(for: snapshot.accent)
+        let isActive = snapshot.accent != .neutral
+        return HStack(spacing: 14) {
+            StatusDot(accent: accentColor, isActive: isActive, reduceMotion: reduceMotion)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(bannerTitle(for: snapshot))
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(SettingsStyle.primaryText)
+                if !snapshot.countdown.isEmpty {
+                    Text(snapshot.countdown)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(SettingsStyle.mutedText)
+                        .monospacedDigit()
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            StatusBar(value: snapshot.progress, accent: accentColor, reduceMotion: reduceMotion)
+                .frame(width: 140)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(accentColor.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private var footerRow: some View {
+        HStack(spacing: 12) {
+            Text(localized("EyePomo \(coordinator.appVersionString) · 数据仅保存在本机，不会上传到任何服务器", "EyePomo \(coordinator.appVersionString) · Data stays on this Mac and is never uploaded to a server"))
+                .font(.system(size: 11))
+                .foregroundStyle(SettingsStyle.tertiaryText)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            Spacer(minLength: 0)
+
+            Button {
+                coordinator.showAbout()
+            } label: {
+                Label(localized("关于", "About"), systemImage: "info.circle")
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(SettingsStyle.actionBlue)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, -4)
+    }
+
+    private func bannerColor(for accent: DisplayAccent) -> Color {
+        switch accent {
+        case .teal:
+            return EyePomoTheme.teal
+        case .tomato:
+            return EyePomoTheme.tomato
+        case .neutral:
+            return SettingsStyle.mutedText
+        }
+    }
+
+    private func bannerTitle(for snapshot: DisplaySnapshot) -> String {
+        let language = coordinator.appSettings.language
+        if language == .english {
+            return snapshot.statusTitle
+        }
+        return snapshot.stateLabel.isEmpty ? snapshot.statusTitle : snapshot.stateLabel
+    }
+
+    private var countCardsRow: some View {
+        let summary = displayedSummary
+        return HStack(spacing: 8) {
+            SummaryCard(
+                label: cardLabel(localized("番茄", "Pomodoros")),
+                value: "\(summary.focusSessionsCompleted)",
+                unit: localized("个", "pomodoros"),
+                color: EyePomoTheme.tomato
+            )
+            SummaryCard(
+                label: cardLabel(localized("眼休完成", "Eye Breaks")),
+                value: "\(summary.eyeBreaksCompleted)",
+                unit: localized("次", "times"),
+                color: EyePomoTheme.teal
+            )
+            SummaryCard(
+                label: cardLabel(localized("跳过眼休", "Skipped")),
+                value: "\(summary.eyeBreaksSkipped)",
+                unit: localized("次", "times"),
+                color: SettingsStyle.warningRed
+            )
+        }
+    }
+
+    private var durationCardsRow: some View {
+        let summary = displayedSummary
+        return HStack(spacing: 8) {
+            SummaryCard(
+                label: cardLabel(localized("专注时长", "Focus Time")),
+                value: durationText(summary.focusMinutes * 60, preferMinutes: false),
+                unit: durationUnitText(summary.focusMinutes),
+                color: SettingsStyle.primaryText
+            )
+            SummaryCard(
+                label: cardLabel(localized("推断休息", "Inferred Rests")),
+                value: "\(summary.inferredRests)",
+                unit: localized("次", "times"),
+                color: EyePomoTheme.teal
+            )
+            SummaryCard(
+                label: cardLabel(localized("最长连续使用", "Longest Stretch")),
+                value: durationText(summary.longestContinuousUsageMinutes * 60, preferMinutes: true),
+                unit: localized("分钟", "min"),
+                color: SettingsStyle.actionBlue
+            )
+        }
+    }
+
+    /// Prefixes a card title with the current scope label, e.g. "今日 番茄"
+    /// in Chinese or "Today · Pomodoros" in English. Reuses `localized` so
+    /// both languages stay readable.
+    private func cardLabel(_ base: String) -> String {
+        let isEnglish = coordinator.appSettings.language == .english
+        let prefix: String
+        switch dataScope {
+        case .today:
+            prefix = isEnglish ? "Today" : "今日"
+        case .month:
+            prefix = isEnglish ? "Month" : "\(selectedMonth)月"
+        case .year:
+            prefix = isEnglish ? "\(selectedYear)" : "\(selectedYear)年"
+        }
+        return isEnglish ? "\(prefix) · \(base)" : "\(prefix) \(base)"
+    }
+
+    /// The summary currently shown in the cards. Today reads from the live
+    /// `coordinator.todaySummary`; year and month aggregate the selected
+    /// range from `scopeSummaries`.
+    private var displayedSummary: DailySummary {
+        switch dataScope {
+        case .today:
+            return coordinator.todaySummary
+        case .month:
+            return aggregateSummaries(
+                in: scopeSummaries,
+                dayKey: String(format: "%04d-%02d", selectedYear, selectedMonth)
+            )
+        case .year:
+            return aggregateSummaries(
+                in: scopeSummaries,
+                dayKey: String(format: "%04d", selectedYear)
+            )
+        }
+    }
+
+    private func aggregateSummaries(in summaries: [String: DailySummary], dayKey: String) -> DailySummary {
+        var combined = DailySummary(dayKey: dayKey)
+        for summary in summaries.values {
+            combined.focusSessionsCompleted += summary.focusSessionsCompleted
+            combined.focusMinutes += summary.focusMinutes
+            combined.eyeBreaksCompleted += summary.eyeBreaksCompleted
+            combined.eyeBreaksSkipped += summary.eyeBreaksSkipped
+            combined.inferredRests += summary.inferredRests
+            // Across a multi-day range, "longest continuous usage" is the worst day.
+            combined.longestContinuousUsageMinutes = max(
+                combined.longestContinuousUsageMinutes,
+                summary.longestContinuousUsageMinutes
+            )
+        }
+        return combined
+    }
+
+    private var breakChartPanel: some View {
+        let summary = displayedSummary
+        let hasAnyCount = summary.focusSessionsCompleted > 0
+            || summary.eyeBreaksCompleted > 0
+            || summary.eyeBreaksSkipped > 0
+
+        return ChartPanel(
+            title: scopeCountsTitle,
+            legend: [
+                (localized("番茄", "Pomodoros"), EyePomoTheme.tomato),
+                (localized("完成", "Done"), EyePomoTheme.teal),
+                (localized("跳过", "Skipped"), SettingsStyle.warningRed)
+            ]
+        ) {
+            if hasAnyCount {
+                MiniBarChart(
+                    bars: [
+                        MiniBar(label: localized("番茄", "Pomodoros"), value: Double(summary.focusSessionsCompleted), color: EyePomoTheme.tomato),
+                        MiniBar(label: localized("完成", "Done"), value: Double(summary.eyeBreaksCompleted), color: EyePomoTheme.teal),
+                        MiniBar(label: localized("跳过", "Skipped"), value: Double(summary.eyeBreaksSkipped), color: SettingsStyle.warningRed)
+                    ],
+                    kind: .integer
+                )
+            } else {
+                emptyChartPlaceholder
+            }
+        }
+    }
+
+    private var scopeCountsTitle: String {
+        let scopeText: String
+        switch dataScope {
+        case .today:
+            scopeText = todayDateString
+        case .month:
+            scopeText = String(format: "%04d-%02d", selectedYear, selectedMonth)
+        case .year:
+            scopeText = "\(selectedYear)"
+        }
+        return localized("计数（\(scopeText)）", "Counts (\(scopeText))")
+    }
+
+    private var emptyChartPlaceholder: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 18))
+                .foregroundStyle(SettingsStyle.tertiaryText)
+            Text(localized("暂无事件数据，完成一次番茄或眼休后这里会显示统计", "No event data yet. Stats appear after your first Pomodoro or eye break."))
+                .font(.system(size: 11))
+                .foregroundStyle(SettingsStyle.tertiaryText)
+                .lineLimit(2)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, minHeight: 80)
+    }
+
+    private var trendPanel: some View {
+        ChartPanel(
+            title: localized("近 7 天番茄完成数", "Pomodoros — Last 7 Days"),
+            legend: [(localized("完成", "Done"), EyePomoTheme.tomato)]
+        ) {
+            if trendSummaries.isEmpty {
+                emptyChartPlaceholder
+            } else {
+                TrendBarChart(summaries: trendSummaries, color: EyePomoTheme.tomato, reduceMotion: reduceMotion)
+            }
+        }
+    }
+
+    private var todayDateString: String {
+        let formatter = DateFormatter()
+        formatter.locale = coordinator.appSettings.language == .english
+            ? Locale(identifier: "en_US_POSIX")
+            : Locale(identifier: "zh_CN")
+        formatter.dateFormat = "MM/dd"
+        return formatter.string(from: Date())
+    }
+
+    private var dataManagementGroup: some View {
+        SettingGroup(localized("数据管理", "Data management")) {
+            SettingRow(localized("数据存储位置", "Data storage location"), sub: coordinator.dataDirectoryPath) {
+                HStack(spacing: 8) {
+                    DataActionButton(title: localized("选择", "Choose"), color: SettingsStyle.actionBlue) {
+                        coordinator.chooseDataDirectory()
+                    }
+                    DataActionButton(title: localized("打开", "Open"), color: EyePomoTheme.teal) {
+                        coordinator.openDataDirectory()
+                    }
+                }
+            }
+            SettingRow(localized("日志目录", "Log folder"), sub: coordinator.logsDirectoryPath) {
+                DataActionButton(title: localized("打开", "Open"), color: SettingsStyle.actionBlue) {
+                    coordinator.openLogsDirectory()
+                }
+            }
+            SettingRow(
+                localized("Markdown 摘要", "Markdown summaries"),
+                sub: journalSubText,
+                last: true
+            ) {
+                if isRefreshingJournal {
+                    HStack(spacing: 6) {
+                        ProgressView()
+                            .controlSize(.small)
+                            .scaleEffect(0.7)
+                        Text(localized("生成中", "Generating"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(SettingsStyle.mutedText)
+                    }
+                    .frame(width: 96)
+                } else {
+                    DataActionButton(
+                        title: coordinator.todayJournalExists
+                            ? localized("打开", "Open")
+                            : localized("生成", "Generate"),
+                        color: EyePomoTheme.teal
+                    ) {
+                        if coordinator.todayJournalExists {
+                            coordinator.openJournalFile(at: coordinator.todayJournalPath)
+                        } else {
+                            triggerJournalRefresh()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var journalSubText: String {
+        if isRefreshingJournal {
+            return localized("正在从事件日志重建摘要…", "Rebuilding summary from event logs…")
+        }
+        if coordinator.todayJournalExists {
+            return coordinator.todayJournalPath
+        }
+        return localized("今日尚未生成摘要，完成任意一次眼休或番茄后自动生成", "No summary yet for today — it appears after the first eye break or Pomodoro")
+    }
+
+    private func triggerJournalRefresh() {
+        guard !isRefreshingJournal else { return }
+        isRefreshingJournal = true
+        coordinator.regenerateTodayJournal()
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            isRefreshingJournal = false
+        }
+    }
+
+    private var interfaceGroup: some View {
+        SettingGroup(localized("界面", "Interface")) {
+            SettingRow(localized("显示语言", "Display language"), sub: localized("切换设置窗口的显示语言", "Switch the language used in this settings window"), last: true) {
+                LanguageSegmentedControl(selection: languageBinding)
+            }
+        }
+    }
+
+    private func durationText(_ totalSeconds: Int, preferMinutes: Bool) -> String {
+        let minutes = totalSeconds / 60
+        if preferMinutes || minutes < 60 {
+            return String(format: "%d", minutes)
+        }
+        let hours = Double(minutes) / 60
         return String(format: "%.1f", hours)
+    }
+
+    private func durationUnitText(_ totalMinutes: Int) -> String {
+        totalMinutes < 60 ? localized("分钟", "min") : localized("小时", "h")
     }
 
     private func minutesBinding(_ keyPath: WritableKeyPath<AppPreferences, Int>) -> Binding<Int> {
@@ -367,7 +755,8 @@ struct SettingsView: View {
         SettingSwitch(
             isOn: binding,
             onLabel: localized("已启用", "On"),
-            offLabel: localized("已关闭", "Off")
+            offLabel: localized("已关闭", "Off"),
+            reduceMotion: reduceMotion
         )
     }
 }
@@ -402,12 +791,11 @@ private enum SettingsTab: CaseIterable, Identifiable {
     }
 }
 
-private enum SettingsStyle {
+enum SettingsStyle {
     static let outerBackground = Color(red: 26 / 255, green: 26 / 255, blue: 28 / 255)
     static let windowBackground = Color(red: 28 / 255, green: 28 / 255, blue: 30 / 255)
     static let titleBarBackground = Color(red: 38 / 255, green: 38 / 255, blue: 40 / 255).opacity(0.98)
     static let toolbarBackground = Color(red: 32 / 255, green: 32 / 255, blue: 34 / 255).opacity(0.95)
-    static let groupBackground = Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255).opacity(0.50)
     static let divider = Color.white.opacity(0.07)
     static let rowDivider = Color.white.opacity(0.06)
     static let primaryText = Color(red: 242 / 255, green: 242 / 255, blue: 247 / 255)
@@ -417,11 +805,20 @@ private enum SettingsStyle {
     static let actionBlue = Color(red: 10 / 255, green: 132 / 255, blue: 255 / 255)
     static let warningRed = Color(red: 255 / 255, green: 69 / 255, blue: 58 / 255)
     static let monoFont = Font.system(size: 13, weight: .regular, design: .monospaced)
+
+    /// Card / group background. macOS Reduce Transparency expects solid surfaces
+    /// instead of half-alpha plates that leak desktop wallpaper through.
+    static func groupBackground(reduceTransparency: Bool) -> Color {
+        reduceTransparency
+            ? Color(red: 44 / 255, green: 44 / 255, blue: 46 / 255)
+            : Color(red: 58 / 255, green: 58 / 255, blue: 60 / 255).opacity(0.50)
+    }
 }
 
 private struct SettingGroup<Content: View>: View {
     let title: String?
     let content: Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
         self.title = title
@@ -442,7 +839,7 @@ private struct SettingGroup<Content: View>: View {
             VStack(spacing: 0) {
                 content
             }
-            .background(SettingsStyle.groupBackground)
+            .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
     }
@@ -499,6 +896,7 @@ private struct SettingSwitch: View {
     @Binding var isOn: Bool
     let onLabel: String
     let offLabel: String
+    var reduceMotion: Bool = false
 
     var body: some View {
         Button {
@@ -514,7 +912,7 @@ private struct SettingSwitch: View {
                         .shadow(color: Color.black.opacity(0.35), radius: 2, x: 0, y: 1)
                         .padding(2.5)
                 }
-                .animation(.easeInOut(duration: 0.18), value: isOn)
+                .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: isOn)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isOn ? onLabel : offLabel)
@@ -621,6 +1019,7 @@ private struct SummaryCard: View {
     let value: String
     let unit: String
     let color: Color
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
         VStack(spacing: 5) {
@@ -644,7 +1043,7 @@ private struct SummaryCard: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
-        .background(SettingsStyle.groupBackground)
+        .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
@@ -653,6 +1052,7 @@ private struct ChartPanel<Content: View>: View {
     let title: String
     let legend: [(String, Color)]
     let content: Content
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     init(title: String, legend: [(String, Color)], @ViewBuilder content: () -> Content) {
         self.title = title
@@ -688,7 +1088,7 @@ private struct ChartPanel<Content: View>: View {
         .padding(.top, 14)
         .padding(.horizontal, 16)
         .padding(.bottom, 10)
-        .background(SettingsStyle.groupBackground)
+        .background(SettingsStyle.groupBackground(reduceTransparency: reduceTransparency))
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
@@ -701,34 +1101,142 @@ private struct MiniBar: Identifiable {
 }
 
 private struct MiniBarChart: View {
+    enum Kind {
+        case integer
+    }
+
     let bars: [MiniBar]
+    let kind: Kind
+
+    init(bars: [MiniBar], kind: Kind = .integer) {
+        self.bars = bars
+        self.kind = kind
+    }
 
     private var maxValue: Double {
-        max(bars.map(\.value).max() ?? 1, 1)
+        max(bars.map(\.value).max() ?? 0, 1)
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 18) {
+        HStack(alignment: .bottom, spacing: 24) {
             ForEach(bars) { bar in
                 VStack(spacing: 7) {
+                    Text(valueCaption(bar.value))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(bar.value > 0 ? bar.color : SettingsStyle.tertiaryText)
+                        .monospacedDigit()
+
                     GeometryReader { proxy in
                         VStack {
                             Spacer(minLength: 0)
                             RoundedRectangle(cornerRadius: 3, style: .continuous)
-                                .fill(bar.color.opacity(0.78))
-                                .frame(height: max(8, proxy.size.height * (bar.value / maxValue)))
+                                .fill(bar.value > 0 ? bar.color.opacity(0.78) : SettingsStyle.rowDivider)
+                                .frame(height: bar.value > 0
+                                    ? max(6, proxy.size.height * (bar.value / maxValue))
+                                    : 2
+                                )
                         }
                     }
-                    .frame(width: 22, height: 112)
+                    .frame(width: 28, height: 100)
 
                     Text(bar.label)
-                        .font(.system(size: 10, design: .monospaced))
+                        .font(.system(size: 10.5))
                         .foregroundStyle(SettingsStyle.secondaryText)
                 }
                 .frame(maxWidth: .infinity)
             }
         }
-        .frame(height: 136)
+        .frame(height: 132)
+    }
+
+    private func valueCaption(_ value: Double) -> String {
+        switch kind {
+        case .integer:
+            return Int(value).description
+        }
+    }
+}
+
+/// 7-day trend chart: one bar per day, single dimension (Pomodoro counts).
+/// All bars share the same scale so visual comparison is meaningful.
+private struct TrendBarChart: View {
+    let summaries: [DailySummary]
+    let color: Color
+    let reduceMotion: Bool
+
+    private static let isoFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
+    private static let shortDayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MM/dd"
+        return formatter
+    }()
+
+    private var weekdayFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.dateFormat = "EEE"
+        return formatter
+    }
+
+    private var maxValue: Double {
+        let raw = summaries.map(\.focusSessionsCompleted).max() ?? 0
+        return max(Double(raw), 1)
+    }
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            ForEach(summaries, id: \.dayKey) { summary in
+                trendBar(for: summary)
+            }
+        }
+        .frame(height: 132)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.25), value: summaries)
+    }
+
+    private func trendBar(for summary: DailySummary) -> some View {
+        let count = summary.focusSessionsCompleted
+        let fraction = Double(count) / maxValue
+        let date = Self.isoFormatter.date(from: summary.dayKey) ?? Date()
+        let isToday = summary.dayKey == summaries.last?.dayKey
+
+        return VStack(spacing: 6) {
+            Text(count > 0 ? "\(count)" : "—")
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(count > 0 ? color : SettingsStyle.tertiaryText)
+                .monospacedDigit()
+
+            GeometryReader { proxy in
+                VStack {
+                    Spacer(minLength: 0)
+                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+                        .fill(count > 0 ? color.opacity(isToday ? 0.92 : 0.62) : SettingsStyle.rowDivider)
+                        .frame(height: count > 0
+                            ? max(4, proxy.size.height * fraction)
+                            : 2
+                        )
+                }
+            }
+            .frame(height: 84)
+
+            VStack(spacing: 1) {
+                Text(weekdayFormatter.string(from: date))
+                    .font(.system(size: 9.5, weight: isToday ? .medium : .regular))
+                    .foregroundStyle(isToday ? SettingsStyle.primaryText : SettingsStyle.secondaryText)
+                    .textCase(.uppercase)
+                Text(Self.shortDayFormatter.string(from: date))
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(SettingsStyle.tertiaryText)
+                    .monospacedDigit()
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -752,5 +1260,213 @@ private struct DataActionButton: View {
                 )
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct StatusBar: View {
+    let value: Double
+    let accent: Color
+    var reduceMotion: Bool = false
+
+    private var clamped: Double {
+        max(0, min(1, value))
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.white.opacity(0.06))
+                Capsule()
+                    .fill(accent.opacity(0.85))
+                    .frame(width: max(2, proxy.size.width * clamped))
+                    .animation(reduceMotion ? nil : .easeOut(duration: 0.25), value: clamped)
+            }
+        }
+        .frame(height: 4)
+    }
+}
+
+private struct StatusDot: View {
+    let accent: Color
+    let isActive: Bool
+    let reduceMotion: Bool
+
+    @State private var pulse = false
+
+    var body: some View {
+        Circle()
+            .fill(accent)
+            .frame(width: 8, height: 8)
+            .overlay(
+                Circle()
+                    .fill(accent.opacity(0.4))
+                    .frame(width: 8, height: 8)
+                    .scaleEffect(isActive && !reduceMotion && pulse ? 1.4 : 1)
+                    .opacity(isActive && !reduceMotion ? 1 : 0)
+            )
+            .onAppear {
+                guard isActive, !reduceMotion else { return }
+                pulse = true
+            }
+            .onChange(of: isActive) { newValue in
+                guard newValue, !reduceMotion else {
+                    pulse = false
+                    return
+                }
+                pulse = true
+            }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: pulse)
+    }
+}
+
+// MARK: - Data scope controls
+
+enum DataScope: Hashable {
+    case today
+    case month
+    case year
+}
+
+private struct DataScopeSegmentedControl: View {
+    let selection: DataScope
+    let language: SettingsLanguage
+    let onChange: (DataScope) -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach([DataScope.today, .month, .year], id: \.self) { scope in
+                Button {
+                    onChange(scope)
+                } label: {
+                    Text(title(for: scope))
+                        .font(.system(size: 12, weight: selection == scope ? .medium : .regular))
+                        .foregroundStyle(selection == scope ? SettingsStyle.primaryText : SettingsStyle.mutedText)
+                        .frame(width: 56, height: 24)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(selection == scope ? Color.white.opacity(0.10) : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
+    }
+
+    private func title(for scope: DataScope) -> String {
+        let isEnglish = language == .english
+        switch scope {
+        case .today: return isEnglish ? "Today" : "今日"
+        case .month: return isEnglish ? "Month" : "月"
+        case .year: return isEnglish ? "Year" : "年"
+        }
+    }
+}
+
+private struct YearStepper: View {
+    @Binding var year: Int
+    let language: SettingsLanguage
+    private let currentYear = Calendar.current.component(.year, from: Date())
+
+    var body: some View {
+        HStack(spacing: 4) {
+            scopeButton(systemImage: "chevron.left") {
+                if year > 2000 {
+                    year -= 1
+                }
+            }
+            Text("\(year)")
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(SettingsStyle.primaryText)
+                .monospacedDigit()
+                .frame(minWidth: 48)
+            scopeButton(systemImage: "chevron.right") {
+                if year < currentYear + 1 {
+                    year += 1
+                }
+            }
+        }
+    }
+
+    private func scopeButton(systemImage: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(SettingsStyle.mutedText)
+                .frame(width: 22, height: 22)
+                .background(Color.white.opacity(0.05))
+                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct MonthPicker: View {
+    @Binding var year: Int
+    @Binding var month: Int
+    private let currentYear = Calendar.current.component(.year, from: Date())
+    private let currentMonth = Calendar.current.component(.month, from: Date())
+
+    var body: some View {
+        HStack(spacing: 4) {
+            yearStepperCompact
+            Text(String(format: "%04d", year))
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundStyle(SettingsStyle.secondaryText)
+                .monospacedDigit()
+            monthSegmented
+        }
+    }
+
+    private var yearStepperCompact: some View {
+        HStack(spacing: 2) {
+            Button {
+                if year > 2000 { year -= 1 }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(SettingsStyle.mutedText)
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+            Button {
+                if year < currentYear + 1 { year += 1 }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(SettingsStyle.mutedText)
+                    .frame(width: 18, height: 18)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var monthSegmented: some View {
+        HStack(spacing: 2) {
+            ForEach(1...12, id: \.self) { m in
+                Button {
+                    month = m
+                } label: {
+                    Text("\(m)")
+                        .font(.system(size: 10, weight: month == m ? .semibold : .regular))
+                        .foregroundStyle(month == m ? SettingsStyle.primaryText : SettingsStyle.mutedText)
+                        .frame(width: 18, height: 18)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(month == m ? Color.white.opacity(0.10) : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(m > currentMonth && year >= currentYear)
+                .opacity(m > currentMonth && year >= currentYear ? 0.3 : 1)
+            }
+        }
     }
 }

@@ -125,6 +125,21 @@ final class AppCoordinator: ObservableObject {
         dataPaths.logsDirectory.path
     }
 
+    var todayJournalPath: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "yyyy-MM-dd"
+        let dayKey = formatter.string(from: Date())
+        return dataPaths.journalsDirectory
+            .appendingPathComponent("\(dayKey).md")
+            .path
+    }
+
+    var todayJournalExists: Bool {
+        FileManager.default.fileExists(atPath: todayJournalPath)
+    }
+
     func setSettingsLanguage(_ language: SettingsLanguage) {
         guard appSettings.language != language else {
             return
@@ -184,6 +199,48 @@ final class AppCoordinator: ObservableObject {
     func openLogsDirectory() {
         try? dataPaths.ensureBaseDirectories()
         NSWorkspace.shared.activateFileViewerSelecting([dataPaths.logsDirectory])
+    }
+
+    func regenerateTodayJournal() {
+        refreshSummaryAndJournal(for: Date())
+    }
+
+    func openJournalFile(at path: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    /// Builds the last `dayCount` daily summaries on demand for trend views.
+    /// Runs off the main actor because event log parsing can be heavy.
+    func loadRecentSummaries(dayCount: Int) async -> [DailySummary] {
+        let paths = dataPaths
+        let calendar = calendar
+        return await Task.detached(priority: .userInitiated) { [eventStore] in
+            await eventStore.loadDailySummaries(
+                endingAt: Date(),
+                dayCount: dayCount,
+                calendar: calendar,
+                paths: paths
+            )
+        }.value
+    }
+
+    /// Loads every daily summary in the given Gregorian year, keyed by `dayKey`.
+    /// Used by the year heatmap and yearly aggregate cards.
+    func loadSummaries(forYear year: Int) async -> [String: DailySummary] {
+        let paths = dataPaths
+        let calendar = calendar
+        return await Task.detached(priority: .userInitiated) { [eventStore] in
+            await eventStore.loadSummaries(forYear: year, calendar: calendar, paths: paths)
+        }.value
+    }
+
+    /// Loads every daily summary in a specific month, keyed by `dayKey`.
+    func loadSummaries(forMonth month: Int, ofYear year: Int) async -> [String: DailySummary] {
+        let paths = dataPaths
+        let calendar = calendar
+        return await Task.detached(priority: .userInitiated) { [eventStore] in
+            await eventStore.loadSummaries(forMonth: month, ofYear: year, calendar: calendar, paths: paths)
+        }.value
     }
 
     func quit() {

@@ -29,34 +29,49 @@ public struct DailySummary: Codable, Sendable, Equatable {
 }
 
 public enum DailySummaryBuilder {
+    /// Builds the summary for a single day. Internally goes through `buildAll`
+    /// so the per-day aggregation logic lives in exactly one place.
     public static func build(
         events: [EventEnvelope],
         day: Date,
         calendar: Calendar
     ) -> DailySummary {
         let key = WorkHoursPolicy.dayKey(day, calendar: calendar)
-        let dayEvents = events
-            .filter { WorkHoursPolicy.dayKey($0.occurredAt, calendar: calendar) == key }
-            .sorted { $0.occurredAt < $1.occurredAt }
+        let byDay = buildAll(events: events, calendar: calendar)
+        return byDay[key] ?? DailySummary(dayKey: key)
+    }
 
-        var summary = DailySummary(dayKey: key)
-        var currentUsageStart: Date?
+    /// Scans the event stream once and groups it by `dayKey`, returning every
+    /// day that has at least one event. This is the foundation for multi-day
+    /// views (trend, year, month, heatmap) and avoids the O(days × events)
+    /// cost of calling `build` once per day.
+    public static func buildAll(
+        events: [EventEnvelope],
+        calendar: Calendar
+    ) -> [String: DailySummary] {
+        let sortedEvents = events.sorted { $0.occurredAt < $1.occurredAt }
 
-        for event in dayEvents {
+        var buckets: [String: DayBucket] = [:]
+
+        for event in sortedEvents {
+            let key = WorkHoursPolicy.dayKey(event.occurredAt, calendar: calendar)
+            var bucket = buckets[key] ?? DayBucket(dayKey: key)
+            var currentUsageStart = bucket.openUsageStart
+
             switch event.kind {
             case .pomodoroFocusCompleted(let payload):
-                summary.focusSessionsCompleted += 1
-                summary.focusMinutes += payload.durationSeconds / 60
+                bucket.summary.focusSessionsCompleted += 1
+                bucket.summary.focusMinutes += payload.durationSeconds / 60
             case .eyeBreakCompleted:
-                summary.eyeBreaksCompleted += 1
-                closeUsageSegment(start: &currentUsageStart, end: event.occurredAt, summary: &summary)
+                bucket.summary.eyeBreaksCompleted += 1
+                closeUsageSegment(start: &currentUsageStart, end: event.occurredAt, summary: &bucket.summary)
             case .eyeBreakSkipped:
-                summary.eyeBreaksSkipped += 1
+                bucket.summary.eyeBreaksSkipped += 1
             case .inferredRest:
-                summary.inferredRests += 1
-                closeUsageSegment(start: &currentUsageStart, end: event.occurredAt, summary: &summary)
+                bucket.summary.inferredRests += 1
+                closeUsageSegment(start: &currentUsageStart, end: event.occurredAt, summary: &bucket.summary)
             case .sleepStarted, .screenLocked, .pomodoroBreakStarted:
-                closeUsageSegment(start: &currentUsageStart, end: event.occurredAt, summary: &summary)
+                closeUsageSegment(start: &currentUsageStart, end: event.occurredAt, summary: &bucket.summary)
             case .wakeDetected, .screenUnlocked, .pomodoroStarted, .eyeBreakDue:
                 if currentUsageStart == nil {
                     currentUsageStart = event.occurredAt
@@ -64,15 +79,21 @@ public enum DailySummaryBuilder {
             default:
                 break
             }
+
+            if let start = currentUsageStart {
+                let minutes = max(0, Int(event.occurredAt.timeIntervalSince(start) / 60))
+                bucket.summary.longestContinuousUsageMinutes = max(bucket.summary.longestContinuousUsageMinutes, minutes)
+            }
+
+            bucket.openUsageStart = currentUsageStart
+            buckets[key] = bucket
         }
 
-        if let start = currentUsageStart {
-            let end = dayEvents.last?.occurredAt ?? day
-            let minutes = max(0, Int(end.timeIntervalSince(start) / 60))
-            summary.longestContinuousUsageMinutes = max(summary.longestContinuousUsageMinutes, minutes)
+        var result: [String: DailySummary] = [:]
+        for (key, bucket) in buckets {
+            result[key] = bucket.summary
         }
-
-        return summary
+        return result
     }
 
     private static func closeUsageSegment(start: inout Date?, end: Date, summary: inout DailySummary) {
@@ -82,5 +103,19 @@ public enum DailySummaryBuilder {
         let minutes = max(0, Int(end.timeIntervalSince(value) / 60))
         summary.longestContinuousUsageMinutes = max(summary.longestContinuousUsageMinutes, minutes)
         start = nil
+    }
+}
+
+/// Mutable per-day accumulator used while scanning events in `buildAll`.
+/// `openUsageStart` carries the start of a not-yet-closed usage segment
+/// across consecutive events so `longestContinuousUsageMinutes` matches the
+/// single-day `build` behavior.
+private struct DayBucket {
+    var summary: DailySummary
+    var openUsageStart: Date?
+
+    init(dayKey: String) {
+        self.summary = DailySummary(dayKey: dayKey)
+        self.openUsageStart = nil
     }
 }

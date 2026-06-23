@@ -227,6 +227,39 @@ struct AppReducerTests {
         #expect(markdown.contains("focus_sessions_completed: 1"))
         #expect(markdown.contains("## 可供本地 AI 分析的问题"))
     }
+
+    @Test("buildAll groups events by day and matches single-day build")
+    func buildAllGroupsByDay() {
+        let day2 = startDate.addingTimeInterval(86_400)
+        let events = [
+            EventEnvelope(occurredAt: startDate, timeZoneIdentifier: "Asia/Shanghai", kind: .pomodoroFocusCompleted(FocusPayload(durationSeconds: 1500, sessionID: UUID())), source: .system),
+            EventEnvelope(occurredAt: startDate.addingTimeInterval(60), timeZoneIdentifier: "Asia/Shanghai", kind: .eyeBreakCompleted(EyeBreakPayload(durationSeconds: 20, trigger: "manual")), source: .user),
+            EventEnvelope(occurredAt: day2, timeZoneIdentifier: "Asia/Shanghai", kind: .pomodoroFocusCompleted(FocusPayload(durationSeconds: 1500, sessionID: UUID())), source: .system),
+            EventEnvelope(occurredAt: day2.addingTimeInterval(60), timeZoneIdentifier: "Asia/Shanghai", kind: .pomodoroFocusCompleted(FocusPayload(durationSeconds: 1500, sessionID: UUID())), source: .system)
+        ]
+
+        let byDay = DailySummaryBuilder.buildAll(events: events, calendar: calendar)
+
+        #expect(byDay.count == 2)
+
+        let day1Key = WorkHoursPolicy.dayKey(startDate, calendar: calendar)
+        let day2Key = WorkHoursPolicy.dayKey(day2, calendar: calendar)
+        #expect(byDay[day1Key]?.focusSessionsCompleted == 1)
+        #expect(byDay[day1Key]?.eyeBreaksCompleted == 1)
+        #expect(byDay[day2Key]?.focusSessionsCompleted == 2)
+
+        // buildAll must produce identical per-day summaries to the single-day build.
+        let singleDay1 = DailySummaryBuilder.build(events: events, day: startDate, calendar: calendar)
+        let singleDay2 = DailySummaryBuilder.build(events: events, day: day2, calendar: calendar)
+        #expect(byDay[day1Key] == singleDay1)
+        #expect(byDay[day2Key] == singleDay2)
+    }
+
+    @Test("buildAll returns empty for an empty event stream")
+    func buildAllEmpty() {
+        let byDay = DailySummaryBuilder.buildAll(events: [], calendar: calendar)
+        #expect(byDay.isEmpty)
+    }
 }
 
 private extension [AppEffect] {

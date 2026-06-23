@@ -62,6 +62,69 @@ actor EventStore {
         return summary
     }
 
+    /// Builds daily summaries for the last `dayCount` days ending at `endDate` (inclusive),
+    /// without touching journal files. Reused for trend charts in the UI.
+    func loadDailySummaries(endingAt endDate: Date, dayCount: Int, calendar: Calendar, paths: AppPaths) -> [DailySummary] {
+        let decoded = loadAllEvents(paths: paths)
+        let byDay = DailySummaryBuilder.buildAll(events: decoded.events, calendar: calendar)
+
+        return (0..<max(1, dayCount)).reversed().map { offset in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: endDate) else {
+                return DailySummary(dayKey: WorkHoursPolicy.dayKey(endDate, calendar: calendar))
+            }
+            let dayStart = calendar.startOfDay(for: day)
+            let key = WorkHoursPolicy.dayKey(dayStart, calendar: calendar)
+            return byDay[key] ?? DailySummary(dayKey: key)
+        }
+    }
+
+    /// Returns one summary per day in the given year, keyed by `dayKey`.
+    /// Days with no events are absent from the dictionary; the UI renders
+    /// empty cells for them. Goes through `buildAll` so a full year is a
+    /// single scan instead of 365 separate filters.
+    func loadSummaries(forYear year: Int, calendar: Calendar, paths: AppPaths) -> [String: DailySummary] {
+        let yearStart = Self.utcCalendar.date(from: DateComponents(year: year, month: 1, day: 1))!
+        let nextYearStart = Self.utcCalendar.date(byAdding: .year, value: 1, to: yearStart)!
+
+        let decoded = loadAllEvents(paths: paths)
+        let byDay = DailySummaryBuilder.buildAll(events: decoded.events, calendar: calendar)
+        return byDay.filter { entry in
+            guard let date = Self.dayKeyFormatter.date(from: entry.key) else {
+                return false
+            }
+            return date >= yearStart && date < nextYearStart
+        }
+    }
+
+    /// Returns one summary per day in the given month (1...12) of `year`.
+    func loadSummaries(forMonth month: Int, ofYear year: Int, calendar: Calendar, paths: AppPaths) -> [String: DailySummary] {
+        let monthStart = Self.utcCalendar.date(from: DateComponents(year: year, month: month, day: 1))!
+        let nextMonthStart = Self.utcCalendar.date(byAdding: .month, value: 1, to: monthStart)!
+
+        let decoded = loadAllEvents(paths: paths)
+        let byDay = DailySummaryBuilder.buildAll(events: decoded.events, calendar: calendar)
+        return byDay.filter { entry in
+            guard let date = Self.dayKeyFormatter.date(from: entry.key) else {
+                return false
+            }
+            return date >= monthStart && date < nextMonthStart
+        }
+    }
+
+    private static let utcCalendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar
+    }()
+
+    private static let dayKeyFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+
     private func logURL(for date: Date, paths: AppPaths) -> URL {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = .current
