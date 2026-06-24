@@ -24,8 +24,8 @@ struct AppReducerTests {
         #expect(state.preferences.eyeBreakDurationSeconds == 20)
     }
 
-    @Test("AppPreferences decodes old data without eye-care filter settings")
-    func appPreferencesDecodeOldDataWithoutEyeCareFilterSettings() throws {
+    @Test("AppPreferences decodes old data with legacy eye-break overlay settings")
+    func appPreferencesDecodeOldDataWithLegacyEyeBreakOverlaySettings() throws {
         let json = """
         {
           "eyeBreakEnabled": false,
@@ -38,10 +38,20 @@ struct AppReducerTests {
         let preferences = try JSONDecoder().decode(AppPreferences.self, from: json)
 
         #expect(preferences.eyeBreakEnabled == false)
+        #expect(preferences.eyeBreakOverlayEnabled == true)
         #expect(preferences.focusDurationSeconds == 1800)
         #expect(preferences.eyeBreakDurationSeconds == 20)
         #expect(preferences.eyeCareFilterEnabled == false)
         #expect(preferences.eyeCareFilterStrength == 0.18)
+        #expect(preferences.preReminderEnabled)
+        #expect(preferences.preReminderLeadSeconds == 20)
+        #expect(preferences.respectSystemFocus)
+        #expect(preferences.reduceFullscreenInterruptions)
+        #expect(preferences.maxSnoozesPerEyeBreak == 3)
+        #expect(preferences.presentationModeDurationSeconds == 60 * 60)
+        #expect(preferences.soundEnabled == false)
+        #expect(preferences.soundName == "break-start")
+        #expect(preferences.soundVolume == 0.5)
     }
 
     @Test("Display snapshot hides the next eye break when eye reminders are disabled")
@@ -213,7 +223,9 @@ struct AppReducerTests {
     func workHoursSuppressAutomaticEyeBreak() {
         var preferences = AppPreferences()
         preferences.eyeBreakIntervalSeconds = 1
+        preferences.reduceFullscreenInterruptions = true
         var state = AppState.initial(now: .init(milliseconds: 0), preferences: preferences)
+        state.suppression.isFullscreenActive = true
         let night = ISO8601DateFormatter().date(from: "2026-06-23T13:00:00Z")!
 
         let effects = AppReducer.reduce(state: &state, event: .clock(.tick), now: .init(milliseconds: 1_000), wallDate: night, calendar: calendar)
@@ -221,6 +233,144 @@ struct AppReducerTests {
         #expect(state.eyeBreak.phase == .suppressed)
         #expect(!effects.hasAnyOverlay)
         #expect(effects.hasAppendedEvent { if case .workHoursSuppressed = $0.kind { return true }; return false })
+        #expect(!effects.hasAppendedEvent { if case .eyeBreakSnoozed = $0.kind { return true }; return false })
+    }
+
+    @Test("Preference preview updates state without logging settingsChanged")
+    func preferencePreviewDoesNotLogSettingsChanged() {
+        var state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(workHoursEnabled: false))
+        var preferences = state.preferences
+        preferences.eyeBreakIntervalSeconds = 30 * 60
+
+        let effects = AppReducer.reduce(
+            state: &state,
+            event: .user(.previewPreferences(preferences)),
+            now: .init(milliseconds: 1_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+
+        #expect(state.preferences.eyeBreakIntervalSeconds == 30 * 60)
+        #expect(!effects.hasAppendedEvent { if case .settingsChanged = $0.kind { return true }; return false })
+        #expect(!effects.hasPersistState)
+    }
+
+    @Test("Preference commit logs one settingsChanged event")
+    func preferenceCommitLogsSettingsChanged() {
+        var state = AppState.initial(now: .init(milliseconds: 0), preferences: AppPreferences(workHoursEnabled: false))
+        var preferences = state.preferences
+        preferences.preReminderLeadSeconds = 15
+
+        let effects = AppReducer.reduce(
+            state: &state,
+            event: .user(.commitPreferences(preferences)),
+            now: .init(milliseconds: 1_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+
+        #expect(state.preferences.preReminderLeadSeconds == 15)
+        #expect(effects.hasAppendedEvent {
+            if case .settingsChanged(let payload) = $0.kind {
+                return payload.preferences.preReminderLeadSeconds == 15
+            }
+            return false
+        })
+        #expect(effects.hasPersistState)
+    }
+
+    @Test("Pre-reminder fires once before an eye break without logging JSONL")
+    func preReminderFiresOnceWithoutEvent() {
+        var preferences = AppPreferences(workHoursEnabled: false)
+        preferences.eyeBreakIntervalSeconds = 60
+        preferences.preReminderEnabled = true
+        preferences.preReminderLeadSeconds = 20
+        var state = AppState.initial(now: .init(milliseconds: 0), preferences: preferences)
+
+        let firstEffects = AppReducer.reduce(
+            state: &state,
+            event: .clock(.tick),
+            now: .init(milliseconds: 45_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+        let secondEffects = AppReducer.reduce(
+            state: &state,
+            event: .clock(.tick),
+            now: .init(milliseconds: 50_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+
+        #expect(firstEffects.hasPreReminder(leadSeconds: 15))
+        #expect(!firstEffects.hasAppendedEvent { _ in true })
+        #expect(!secondEffects.hasPreReminder)
+    }
+
+    @Test("Fullscreen interruptions snooze only up to the configured limit")
+    func fullscreenInterruptionSnoozeLimit() {
+        var preferences = AppPreferences(workHoursEnabled: false)
+        preferences.eyeBreakIntervalSeconds = 60
+        preferences.snoozeSeconds = 60
+        preferences.maxSnoozesPerEyeBreak = 1
+        preferences.reduceFullscreenInterruptions = true
+        var state = AppState.initial(now: .init(milliseconds: 0), preferences: preferences)
+        state.suppression.isFullscreenActive = true
+
+        let snoozeEffects = AppReducer.reduce(
+            state: &state,
+            event: .clock(.tick),
+            now: .init(milliseconds: 60_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+
+        #expect(state.eyeBreak.phase == .snoozed)
+        #expect(state.eyeBreak.snoozeCount == 1)
+        #expect(!snoozeEffects.hasAnyOverlay)
+        #expect(snoozeEffects.hasAppendedEvent { if case .eyeBreakSnoozed = $0.kind { return true }; return false })
+
+        let dueAgainEffects = AppReducer.reduce(
+            state: &state,
+            event: .clock(.tick),
+            now: .init(milliseconds: 120_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+
+        #expect(state.eyeBreak.phase == .active)
+        #expect(dueAgainEffects.hasOverlay(kind: .eyeBreak))
+    }
+
+    @Test("Presentation mode delays automatic eye breaks")
+    func presentationModeDelaysAutomaticEyeBreaks() {
+        var preferences = AppPreferences(workHoursEnabled: false)
+        preferences.eyeBreakIntervalSeconds = 60
+        var state = AppState.initial(now: .init(milliseconds: 0), preferences: preferences)
+
+        let startEffects = AppReducer.reduce(
+            state: &state,
+            event: .user(.startPresentationMode(seconds: 600)),
+            now: .init(milliseconds: 10_000),
+            wallDate: startDate,
+            calendar: calendar
+        )
+
+        #expect(state.suppression.isPresentationModeActive(at: startDate))
+        #expect(state.eyeBreak.nextDueAt == AppInstant(milliseconds: 610_000))
+        #expect(startEffects.hasDismissOverlay)
+
+        state.eyeBreak.nextDueAt = .init(milliseconds: 20_000)
+        let tickEffects = AppReducer.reduce(
+            state: &state,
+            event: .clock(.tick),
+            now: .init(milliseconds: 20_000),
+            wallDate: startDate.addingTimeInterval(10),
+            calendar: calendar
+        )
+
+        #expect(!tickEffects.hasAnyOverlay)
+        #expect(state.eyeBreak.nextDueAt == AppInstant(milliseconds: 610_000))
     }
 
     @Test("JSONL decoder recovers a corrupt final line")
@@ -346,6 +496,23 @@ private extension [AppEffect] {
 
     var hasDismissOverlay: Bool {
         contains { if case .dismissOverlay = $0 { return true }; return false }
+    }
+
+    var hasPersistState: Bool {
+        contains { if case .persistState = $0 { return true }; return false }
+    }
+
+    var hasPreReminder: Bool {
+        contains { if case .showPreReminder = $0 { return true }; return false }
+    }
+
+    func hasPreReminder(leadSeconds: Int) -> Bool {
+        contains { effect in
+            guard case .showPreReminder(let request) = effect else {
+                return false
+            }
+            return request.leadSeconds == leadSeconds
+        }
     }
 
     func hasOverlay(kind: OverlayKind, durationSeconds: Int? = nil) -> Bool {

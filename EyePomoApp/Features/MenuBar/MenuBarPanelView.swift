@@ -81,6 +81,10 @@ struct MenuBarPanelView: View {
                 secondaryButton("下一阶段", icon: "forward.end", action: .skipPomodoroPhase)
                 secondaryButton("重置番茄", icon: "arrow.counterclockwise", action: .resetPomodoro)
             }
+            HStack(spacing: 8) {
+                presentationModeButton
+                secondaryButton(localized("今日静音", "Mute today"), icon: "bell.slash", action: .muteRemindersForToday)
+            }
         }
     }
 
@@ -102,6 +106,26 @@ struct MenuBarPanelView: View {
             Label(title, systemImage: icon)
                 .font(AppFont.font(12, weight: .medium))
                 .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(SecondaryPanelButtonStyle())
+        .focusable(false)
+    }
+
+    private var presentationModeButton: some View {
+        let isActive = coordinator.state.suppression.isPresentationModeActive(at: Date())
+        return Button {
+            if isActive {
+                coordinator.send(.endPresentationMode)
+            } else {
+                coordinator.send(.startPresentationMode(seconds: coordinator.state.preferences.presentationModeDurationSeconds))
+            }
+        } label: {
+            Label(
+                isActive ? localized("结束会议", "End meeting") : localized("会议模式", "Meeting mode"),
+                systemImage: isActive ? "person.crop.circle.badge.checkmark" : "person.2"
+            )
+            .font(AppFont.font(12, weight: .medium))
+            .frame(maxWidth: .infinity)
         }
         .buttonStyle(SecondaryPanelButtonStyle())
         .focusable(false)

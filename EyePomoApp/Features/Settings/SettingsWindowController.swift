@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 final class SettingsWindowController: NSObject, NSWindowDelegate {
     private var window: NSWindow?
+    private var onClose: (() -> Void)?
 
     var isWindowVisibleForDiagnostics: Bool {
         window?.isVisible == true
@@ -11,6 +12,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
     func show(coordinator: AppCoordinator) {
         NSApp.setActivationPolicy(.regular)
+        onClose = { [weak coordinator] in
+            coordinator?.flushPendingPreferenceChanges()
+        }
 
         if let window {
             window.title = title(for: coordinator.appSettings.language)
@@ -62,6 +66,8 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     }
 
     func windowWillClose(_ notification: Notification) {
+        onClose?()
+        onClose = nil
         window = nil
         NSApp.setActivationPolicy(.accessory)
     }

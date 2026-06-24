@@ -18,13 +18,18 @@ final class AppCoordinator: ObservableObject {
     private let appSettingsStore = AppSettingsStore()
     private let stateStore = AppStateStore()
     private let eventStore = EventStore()
+    private let eyeBreakOverlayWindowController = EyeBreakOverlayWindowController()
     private let eyeCareFilterController = EyeCareFilterController()
     private let notificationClient = NotificationClient()
+    private let soundPlayer = SoundPlayer()
     private lazy var statusItemController = StatusItemController(coordinator: self)
     private let settingsWindowController = SettingsWindowController()
     private var idleMonitor: IdleMonitor?
     private var workspaceEventMonitor: WorkspaceEventMonitor?
     private var appearanceObserver: NSKeyValueObservation?
+    private var pendingPreferenceCommit: AppPreferences?
+    private var preferenceCommitTask: Task<Void, Never>?
+    private var lastCommittedPreferences: AppPreferences
 
     init() {
         var calendar = Calendar(identifier: .gregorian)
@@ -42,6 +47,7 @@ final class AppCoordinator: ObservableObject {
         self.currentInstant = now
         self.state = restoredState
         self.todaySummary = DailySummary(dayKey: WorkHoursPolicy.dayKey(Date(), calendar: calendar))
+        self.lastCommittedPreferences = preferences
         syncAppearanceGlobals()
     }
 
@@ -86,6 +92,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func shutdown() {
+        flushPendingPreferenceChanges()
         timer?.invalidate()
         timer = nil
         idleMonitor?.stop()
@@ -102,7 +109,55 @@ final class AppCoordinator: ObservableObject {
     }
 
     func updatePreferences(_ preferences: AppPreferences) {
-        dispatch(.user(.updatePreferences(preferences)))
+        if preferences == state.preferences,
+           pendingPreferenceCommit == nil || pendingPreferenceCommit == preferences {
+            return
+        }
+
+        dispatch(.user(.previewPreferences(preferences)))
+        schedulePreferenceCommit(preferences)
+    }
+
+    func flushPendingPreferenceChanges() {
+        preferenceCommitTask?.cancel()
+        preferenceCommitTask = nil
+
+        guard let preferences = pendingPreferenceCommit else {
+            return
+        }
+
+        pendingPreferenceCommit = nil
+        commitPreferencesIfNeeded(preferences)
+    }
+
+    private func schedulePreferenceCommit(_ preferences: AppPreferences) {
+        pendingPreferenceCommit = preferences
+        preferenceCommitTask?.cancel()
+        preferenceCommitTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 750_000_000)
+            guard !Task.isCancelled else {
+                return
+            }
+            await MainActor.run {
+                self?.flushPendingPreferenceChanges()
+            }
+        }
+    }
+
+    private func commitPreferencesIfNeeded(_ preferences: AppPreferences) {
+        guard preferences != lastCommittedPreferences else {
+            return
+        }
+
+        dispatch(.user(.commitPreferences(preferences)))
+        lastCommittedPreferences = preferences
+    }
+
+    private func discardPendingPreferenceChanges(committed preferences: AppPreferences) {
+        preferenceCommitTask?.cancel()
+        preferenceCommitTask = nil
+        pendingPreferenceCommit = nil
+        lastCommittedPreferences = preferences
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {
@@ -247,11 +302,12 @@ final class AppCoordinator: ObservableObject {
         AppDensityProfile.current = appSettings.density
     }
 
-    /// 将外观模式应用到所有已显示的 AppKit 容器（settings 窗口、菜单栏 popover）。
+    /// 将外观模式应用到所有已显示的 AppKit 容器（settings 窗口、菜单栏 popover、眼休遮罩）。
     private func applyAppearanceAcrossWindows() {
         let mode = appSettings.appearance
         settingsWindowController.applyAppearance(mode)
         statusItemController.applyAppearance(mode)
+        eyeBreakOverlayWindowController.applyAppearance(mode)
     }
 
     private func handleSystemAppearanceChange() {
@@ -492,13 +548,23 @@ final class AppCoordinator: ObservableObject {
             case .updateStatusItem:
                 break
             case .showOverlay(let request):
+                if request.kind == .eyeBreak, state.preferences.eyeBreakOverlayEnabled {
+                    eyeBreakOverlayWindowController.show(request: request, coordinator: self)
+                } else {
+                    eyeBreakOverlayWindowController.dismiss()
+                }
                 if state.preferences.notificationsEnabled {
                     notificationClient.deliverOverlayNotification(request)
                 }
+            case .showPreReminder(let request):
+                if state.preferences.notificationsEnabled {
+                    notificationClient.deliverPreReminderNotification(request)
+                }
             case .dismissOverlay:
-                break
+                eyeBreakOverlayWindowController.dismiss()
             case .appendEvent(let event):
                 appendEventAndRefresh(event)
+                playSoundIfNeeded(for: event)
             case .persistState:
                 settingsStore.save(state.preferences)
                 stateStore.save(state, now: currentInstant, wallDate: Date(), paths: dataPaths)
@@ -511,6 +577,53 @@ final class AppCoordinator: ObservableObject {
     private func refreshChrome() {
         currentInstant = Self.makeInstant()
         statusItemController.update(snapshot: state.displaySnapshot(at: currentInstant))
+    }
+
+    private func playSoundIfNeeded(for event: EventEnvelope) {
+        guard shouldPlayAudibleCue() else {
+            return
+        }
+
+        let soundName: String?
+        switch event.kind {
+        case .eyeBreakDue:
+            soundName = AppSoundCatalog.normalizedName(
+                state.preferences.soundName,
+                fallback: AppSoundCatalog.breakStartDefault
+            )
+        case .pomodoroFocusCompleted:
+            soundName = AppSoundCatalog.focusCompleteDefault
+        case .pomodoroBreakCompleted:
+            soundName = AppSoundCatalog.breakCompleteDefault
+        default:
+            soundName = nil
+        }
+
+        guard let soundName else {
+            return
+        }
+
+        soundPlayer.play(name: soundName, volume: state.preferences.soundVolume)
+    }
+
+    private func shouldPlayAudibleCue() -> Bool {
+        let preferences = state.preferences
+        guard preferences.soundEnabled else {
+            return false
+        }
+        if preferences.respectSystemFocus, !preferences.notificationsEnabled {
+            return false
+        }
+        guard !state.suppression.isPresentationModeActive(at: Date()) else {
+            return false
+        }
+        guard !(preferences.reduceFullscreenInterruptions && state.suppression.isFullscreenActive) else {
+            return false
+        }
+        guard WorkHoursPolicy.isInsideWorkHours(Date(), calendar: calendar, preferences: preferences) else {
+            return false
+        }
+        return true
     }
 
     private static func makeInstant() -> AppInstant {
@@ -567,7 +680,9 @@ final class AppCoordinator: ObservableObject {
 
             @MainActor
             func restoreDiagnosticsState() {
+                eyeBreakOverlayWindowController.dismiss()
                 eyeCareFilterController.hide()
+                discardPendingPreferenceChanges(committed: originalPreferences)
                 settingsWindowController.closeForDiagnostics()
                 state.preferences = originalPreferences
                 appSettings = originalAppSettings
@@ -588,6 +703,7 @@ final class AppCoordinator: ObservableObject {
 
             var diagnosticPreferences = state.preferences
             diagnosticPreferences.eyeBreakEnabled = true
+            diagnosticPreferences.eyeBreakOverlayEnabled = true
             diagnosticPreferences.notificationsEnabled = false
             diagnosticPreferences.workHoursEnabled = false
             diagnosticPreferences.eyeCareFilterStrength = 0.18
@@ -617,11 +733,17 @@ final class AppCoordinator: ObservableObject {
             if state.presentation.activeOverlay != .eyeBreak {
                 failures.append("manual eye break did not enter active eye-break state")
             }
+            if eyeBreakOverlayWindowController.visiblePanelCountForDiagnostics < expectedPanels {
+                failures.append("eye-break overlay did not create panels for active screens")
+            }
 
             send(.snoozeEyeBreak)
             try? await Task.sleep(nanoseconds: 250_000_000)
             if state.presentation.activeOverlay != nil {
                 failures.append("snooze did not clear active eye-break state")
+            }
+            if eyeBreakOverlayWindowController.visiblePanelCountForDiagnostics != 0 {
+                failures.append("eye-break overlay did not dismiss after snooze")
             }
 
             send(.startPomodoro)

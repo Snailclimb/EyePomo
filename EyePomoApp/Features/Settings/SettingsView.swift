@@ -189,8 +189,41 @@ struct SettingsView: View {
             }
 
             SettingGroup(localized("提醒方式", "Reminder style")) {
-                SettingRow(localized("系统通知", "System notifications"), sub: localized("允许通过 macOS 通知辅助提醒", "Use macOS notifications as a backup reminder"), last: true) {
+                SettingRow(localized("休息前预提醒", "Pre-reminder"), sub: localized("眼休前轻量提醒，避免突然打断", "Show a light heads-up before an eye break")) {
+                    settingSwitch(boolBinding(\.preReminderEnabled))
+                }
+                SettingRow(localized("提前时间", "Lead time"), sub: localized("建议 10-30 秒", "Recommended: 10-30 seconds")) {
+                    SettingStepper(value: secondsBinding(\.preReminderLeadSeconds), range: 10...30, unit: localized("秒", "sec"))
+                }
+                SettingRow(localized("眼休屏幕遮罩", "Eye-break screen overlay"), sub: localized("眼部提醒时显示全屏遮罩和操作按钮", "Show a full-screen overlay with actions for eye-break reminders")) {
+                    settingSwitch(boolBinding(\.eyeBreakOverlayEnabled))
+                }
+                SettingRow(localized("系统通知", "System notifications"), sub: localized("允许通过 macOS 通知辅助提醒", "Use macOS notifications as a backup reminder")) {
                     settingSwitch(notificationsBinding)
+                }
+                SettingRow(localized("提示音", "Sound"), sub: localized("只在非免打扰场景播放短音效", "Play short cues only outside quiet contexts")) {
+                    settingSwitch(boolBinding(\.soundEnabled))
+                }
+                SettingRow(localized("音效", "Sound cue"), sub: localized("用于眼休开始提醒", "Used for eye-break start reminders")) {
+                    soundPicker
+                }
+                SettingRow(localized("音量", "Volume"), last: true) {
+                    OpacityControl(value: doubleBinding(\.soundVolume), range: 0.1...1.0)
+                }
+            }
+
+            SettingGroup(localized("免打扰", "Quiet mode")) {
+                SettingRow(localized("尊重系统专注", "Respect Focus"), sub: localized("开启后，提示音需要同时开启系统通知", "When on, sounds require system notifications to be enabled")) {
+                    settingSwitch(boolBinding(\.respectSystemFocus))
+                }
+                SettingRow(localized("全屏时降低打扰", "Reduce in full screen"), sub: localized("全屏空间内先延后提醒，达到次数上限后再提醒", "Snooze first in full-screen spaces, then remind after the limit")) {
+                    settingSwitch(boolBinding(\.reduceFullscreenInterruptions))
+                }
+                SettingRow(localized("最多延后次数", "Max snoozes"), sub: localized("单轮眼休最多可延后几次", "Maximum snoozes per eye-break cycle")) {
+                    SettingStepper(value: intBinding(\.maxSnoozesPerEyeBreak), range: 0...5, unit: localized("次", "times"))
+                }
+                SettingRow(localized("会议模式时长", "Meeting mode duration"), sub: localized("菜单栏中开启会议模式的默认时长", "Default duration for meeting mode from the menu bar"), last: true) {
+                    SettingStepper(value: minutesBinding(\.presentationModeDurationSeconds), range: 15...180, unit: localized("分钟", "min"))
                 }
             }
 
@@ -804,6 +837,56 @@ struct SettingsView: View {
             get: { coordinator.state.preferences.notificationsEnabled },
             set: { coordinator.setNotificationsEnabled($0) }
         )
+    }
+
+    private func doubleBinding(_ keyPath: WritableKeyPath<AppPreferences, Double>) -> Binding<Double> {
+        Binding(
+            get: { coordinator.state.preferences[keyPath: keyPath] },
+            set: { newValue in
+                var preferences = coordinator.state.preferences
+                preferences[keyPath: keyPath] = newValue
+                coordinator.updatePreferences(preferences)
+            }
+        )
+    }
+
+    private var soundPicker: some View {
+        Menu {
+            ForEach(AppSoundCatalog.availableNames, id: \.self) { name in
+                Button {
+                    var preferences = coordinator.state.preferences
+                    preferences.soundName = name
+                    coordinator.updatePreferences(preferences)
+                } label: {
+                    Text(AppSoundCatalog.localizedTitle(
+                        for: name,
+                        english: coordinator.appSettings.language == .english
+                    ))
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(AppSoundCatalog.localizedTitle(
+                    for: coordinator.state.preferences.soundName,
+                    english: coordinator.appSettings.language == .english
+                ))
+                Image(systemName: "chevron.down")
+                    .font(AppFont.font(10, weight: .medium))
+                    .foregroundStyle(SettingsStyle.tertiaryText)
+            }
+            .font(AppFont.font(12, weight: .medium))
+            .foregroundStyle(SettingsStyle.primaryText)
+            .padding(.vertical, 5)
+            .padding(.horizontal, 10)
+            .background(SettingsStyle.subtleFill)
+            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(SettingsStyle.hairlineStrong, lineWidth: 1)
+            )
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
     }
 
     private var eyeCareFilterEnabledBinding: Binding<Bool> {

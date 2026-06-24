@@ -33,7 +33,13 @@ struct AppStateStore {
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount = 0
             state.presentation.activeOverlay = nil
+        }
+
+        if state.suppression.isPresentationModeActive(at: wallDate) == false {
+            state.suppression.presentationModeUntil = nil
         }
 
         return state

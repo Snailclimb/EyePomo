@@ -67,9 +67,14 @@ public enum AppReducer {
             )
         case .snoozeEyeBreak:
             let snooze = state.preferences.snoozeSeconds
+            guard state.eyeBreak.snoozeCount < max(0, state.preferences.maxSnoozesPerEyeBreak) else {
+                return []
+            }
             state.eyeBreak.phase = .snoozed
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: snooze)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount += 1
             state.presentation.activeOverlay = nil
             return [
                 .appendEvent(makeEvent(.eyeBreakSnoozed(SnoozePayload(snoozeSeconds: snooze)), source: .user, wallDate: wallDate, calendar: calendar)),
@@ -82,6 +87,8 @@ public enum AppReducer {
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount = 0
             state.presentation.activeOverlay = nil
             return [
                 .appendEvent(makeEvent(.eyeBreakSkipped(EyeBreakPayload(durationSeconds: duration, trigger: "user")), source: .user, wallDate: wallDate, calendar: calendar)),
@@ -95,6 +102,7 @@ public enum AppReducer {
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.nextDueAt = now.adding(seconds: seconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
             return [.dismissOverlay, .persistState]
         case .muteRemindersForToday:
             state.suppression.mutedForDate = WorkHoursPolicy.dayKey(wallDate, calendar: calendar)
@@ -102,18 +110,36 @@ public enum AppReducer {
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
             return [.dismissOverlay, .persistState]
-        case .updatePreferences(let preferences):
-            state.preferences = preferences
-            state.interruptionPolicy.snoozeSeconds = preferences.snoozeSeconds
-            if state.eyeBreak.nextDueAt == nil {
-                state.eyeBreak.nextDueAt = now.adding(seconds: preferences.eyeBreakIntervalSeconds)
+        case .startPresentationMode(let seconds):
+            let duration = max(60, seconds)
+            state.suppression.presentationModeUntil = wallDate.addingTimeInterval(TimeInterval(duration))
+            state.presentation.activeOverlay = nil
+            state.eyeBreak.activeDeadline = nil
+            state.eyeBreak.phase = .scheduled
+            state.eyeBreak.nextDueAt = now.adding(seconds: duration)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            return [.dismissOverlay, .persistState]
+        case .endPresentationMode:
+            state.suppression.presentationModeUntil = nil
+            if state.eyeBreak.nextDueAt == nil || (state.eyeBreak.nextDueAt.map { now >= $0 } ?? false) {
+                state.eyeBreak.nextDueAt = now.adding(seconds: min(60, state.preferences.eyeBreakIntervalSeconds))
+                state.eyeBreak.preReminderShownForDueAt = nil
             }
+            return [.persistState]
+        case .previewPreferences(let preferences):
+            applyPreferences(preferences, to: &state, now: now)
+            return []
+        case .commitPreferences(let preferences):
+            applyPreferences(preferences, to: &state, now: now)
             return [
                 .appendEvent(makeEvent(.settingsChanged(SettingsChangedPayload(preferences: preferences)), source: .user, wallDate: wallDate, calendar: calendar)),
                 .persistState,
                 .regenerateJournal(wallDate)
             ]
+        case .updatePreferences(let preferences):
+            return reduceUserAction(.commitPreferences(preferences), state: &state, now: now, wallDate: wallDate, calendar: calendar)
         }
     }
 
@@ -136,8 +162,25 @@ public enum AppReducer {
         }
 
         effects.append(contentsOf: maybeSatisfyEyeBreakFromPomodoroBreak(state: &state, now: now, wallDate: wallDate, calendar: calendar))
+        effects.append(contentsOf: maybeShowPreReminder(state: &state, now: now, wallDate: wallDate, calendar: calendar))
         effects.append(contentsOf: maybeStartDueEyeBreak(state: &state, now: now, wallDate: wallDate, calendar: calendar))
         return effects
+    }
+
+    private static func applyPreferences(
+        _ preferences: AppPreferences,
+        to state: inout AppState,
+        now: AppInstant
+    ) {
+        let oldDueAt = state.eyeBreak.nextDueAt
+        state.preferences = preferences
+        state.interruptionPolicy.snoozeSeconds = preferences.snoozeSeconds
+        if state.eyeBreak.nextDueAt == nil {
+            state.eyeBreak.nextDueAt = now.adding(seconds: preferences.eyeBreakIntervalSeconds)
+        }
+        if oldDueAt != state.eyeBreak.nextDueAt {
+            state.eyeBreak.preReminderShownForDueAt = nil
+        }
     }
 
     private static func reducePresence(
@@ -153,6 +196,8 @@ public enum AppReducer {
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount = 0
             state.presentation.activeOverlay = nil
             return [
                 .appendEvent(makeEvent(.sleepStarted(SystemPayload(detail: "system sleep")), source: .system, wallDate: wallDate, calendar: calendar)),
@@ -164,6 +209,8 @@ public enum AppReducer {
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount = 0
             state.presentation.activeOverlay = nil
             return [
                 .appendEvent(makeEvent(.wakeDetected(SystemPayload(detail: "system wake")), source: .system, wallDate: wallDate, calendar: calendar)),
@@ -175,6 +222,8 @@ public enum AppReducer {
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount = 0
             state.presentation.activeOverlay = nil
             return [
                 .appendEvent(makeEvent(.screenLocked(SystemPayload(detail: "screen locked")), source: .system, wallDate: wallDate, calendar: calendar)),
@@ -186,6 +235,8 @@ public enum AppReducer {
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount = 0
             state.presentation.activeOverlay = nil
             return [
                 .appendEvent(makeEvent(.screenUnlocked(SystemPayload(detail: "screen unlocked")), source: .system, wallDate: wallDate, calendar: calendar)),
@@ -234,6 +285,7 @@ public enum AppReducer {
         case .workHoursStarted:
             if state.eyeBreak.nextDueAt == nil {
                 state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+                state.eyeBreak.preReminderShownForDueAt = nil
             }
             return [.persistState]
         case .workHoursEnded:
@@ -241,6 +293,7 @@ public enum AppReducer {
             state.eyeBreak.activeDeadline = nil
             state.eyeBreak.phase = .scheduled
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
             return [.dismissOverlay, .persistState]
         case .screensChanged:
             if let activeOverlay = state.presentation.activeOverlay {
@@ -253,6 +306,12 @@ public enum AppReducer {
                 ]
             }
             return []
+        case .fullscreenActivityChanged(let isActive):
+            guard state.suppression.isFullscreenActive != isActive else {
+                return []
+            }
+            state.suppression.isFullscreenActive = isActive
+            return [.persistState]
         }
     }
 
@@ -396,15 +455,33 @@ public enum AppReducer {
 
         if state.suppression.isAutomaticReminderSuppressed(at: wallDate, calendar: calendar) {
             state.eyeBreak.phase = .scheduled
-            state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            let delay = state.suppression.presentationModeRemainingSeconds(at: wallDate)
+            state.eyeBreak.nextDueAt = now.adding(seconds: max(60, delay > 0 ? delay : state.preferences.eyeBreakIntervalSeconds))
+            state.eyeBreak.preReminderShownForDueAt = nil
             return [.persistState]
         }
 
         guard WorkHoursPolicy.isInsideWorkHours(wallDate, calendar: calendar, preferences: state.preferences) else {
             state.eyeBreak.phase = .suppressed
             state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.preReminderShownForDueAt = nil
             return [
                 .appendEvent(makeEvent(.workHoursSuppressed(SystemPayload(detail: "outside work hours")), source: .system, wallDate: wallDate, calendar: calendar)),
+                .persistState,
+                .regenerateJournal(wallDate)
+            ]
+        }
+
+        if state.preferences.reduceFullscreenInterruptions,
+           state.suppression.isFullscreenActive,
+           state.eyeBreak.snoozeCount < max(0, state.preferences.maxSnoozesPerEyeBreak) {
+            let delay = min(max(60, state.preferences.snoozeSeconds), state.preferences.eyeBreakIntervalSeconds)
+            state.eyeBreak.phase = .snoozed
+            state.eyeBreak.nextDueAt = now.adding(seconds: delay)
+            state.eyeBreak.preReminderShownForDueAt = nil
+            state.eyeBreak.snoozeCount += 1
+            return [
+                .appendEvent(makeEvent(.eyeBreakSnoozed(SnoozePayload(snoozeSeconds: delay)), source: .system, wallDate: wallDate, calendar: calendar)),
                 .persistState,
                 .regenerateJournal(wallDate)
             ]
@@ -419,11 +496,68 @@ public enum AppReducer {
             if remaining <= state.interruptionPolicy.mergeWindowSeconds {
                 state.eyeBreak.phase = .deferredToPomodoroBreak
                 state.eyeBreak.nextDueAt = state.pomodoro.deadline?.endsAt
+                state.eyeBreak.preReminderShownForDueAt = nil
                 return [.persistState]
             }
         }
 
         return activateEyeBreak(state: &state, now: now, wallDate: wallDate, calendar: calendar, trigger: "scheduled")
+    }
+
+    private static func maybeShowPreReminder(
+        state: inout AppState,
+        now: AppInstant,
+        wallDate: Date,
+        calendar: Calendar
+    ) -> [AppEffect] {
+        guard state.preferences.eyeBreakEnabled, state.preferences.preReminderEnabled else {
+            return []
+        }
+        guard state.eyeBreak.phase == .scheduled || state.eyeBreak.phase == .snoozed else {
+            return []
+        }
+        guard state.presentation.activeOverlay == nil else {
+            return []
+        }
+        guard state.presence.isSessionActive && state.presence.isScreenAwake && !state.presence.isInputIdle else {
+            return []
+        }
+        guard !state.suppression.isAutomaticReminderSuppressed(at: wallDate, calendar: calendar) else {
+            return []
+        }
+        guard WorkHoursPolicy.isInsideWorkHours(wallDate, calendar: calendar, preferences: state.preferences) else {
+            return []
+        }
+        guard !(state.preferences.reduceFullscreenInterruptions && state.suppression.isFullscreenActive) else {
+            return []
+        }
+        guard let dueAt = state.eyeBreak.nextDueAt else {
+            return []
+        }
+
+        let remaining = now.seconds(until: dueAt)
+        let lead = max(10, min(30, state.preferences.preReminderLeadSeconds))
+        guard remaining > 0, remaining <= lead else {
+            return []
+        }
+        guard state.eyeBreak.preReminderShownForDueAt != dueAt else {
+            return []
+        }
+
+        if state.pomodoro.phase == .focus,
+           state.pomodoro.runState == .running,
+           state.pomodoro.remainingSeconds(at: now) <= state.interruptionPolicy.mergeWindowSeconds {
+            return []
+        }
+
+        state.eyeBreak.preReminderShownForDueAt = dueAt
+        return [
+            .showPreReminder(PreReminderRequest(
+                leadSeconds: remaining,
+                message: "眼休将在 \(remaining) 秒后开始"
+            )),
+            .persistState
+        ]
     }
 
     private static func maybeCompleteActiveEyeBreak(
@@ -457,6 +591,7 @@ public enum AppReducer {
         state.eyeBreak.phase = .active
         state.eyeBreak.activeDeadline = Deadline(startedAt: now, durationSeconds: duration)
         state.eyeBreak.nextDueAt = nil
+        state.eyeBreak.preReminderShownForDueAt = nil
         state.presentation.activeOverlay = .eyeBreak
 
         return [
@@ -508,6 +643,8 @@ public enum AppReducer {
         state.eyeBreak.activeDeadline = nil
         state.eyeBreak.lastSatisfiedAt = now
         state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+        state.eyeBreak.preReminderShownForDueAt = nil
+        state.eyeBreak.snoozeCount = 0
         state.presentation.activeOverlay = nil
 
         return [
@@ -530,6 +667,8 @@ public enum AppReducer {
         state.eyeBreak.activeDeadline = nil
         state.eyeBreak.lastSatisfiedAt = now
         state.eyeBreak.nextDueAt = now.adding(seconds: state.preferences.eyeBreakIntervalSeconds)
+        state.eyeBreak.preReminderShownForDueAt = nil
+        state.eyeBreak.snoozeCount = 0
         state.presentation.activeOverlay = nil
 
         return [

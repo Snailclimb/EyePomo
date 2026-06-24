@@ -67,19 +67,25 @@ public struct EyeBreakState: Codable, Sendable, Equatable {
     public var activeDeadline: Deadline?
     public var lastSatisfiedAt: AppInstant?
     public var lastSuppressedAt: AppInstant?
+    public var preReminderShownForDueAt: AppInstant?
+    public var snoozeCount: Int
 
     public init(
         phase: EyeBreakPhase = .scheduled,
         nextDueAt: AppInstant? = nil,
         activeDeadline: Deadline? = nil,
         lastSatisfiedAt: AppInstant? = nil,
-        lastSuppressedAt: AppInstant? = nil
+        lastSuppressedAt: AppInstant? = nil,
+        preReminderShownForDueAt: AppInstant? = nil,
+        snoozeCount: Int = 0
     ) {
         self.phase = phase
         self.nextDueAt = nextDueAt
         self.activeDeadline = activeDeadline
         self.lastSatisfiedAt = lastSatisfiedAt
         self.lastSuppressedAt = lastSuppressedAt
+        self.preReminderShownForDueAt = preReminderShownForDueAt
+        self.snoozeCount = snoozeCount
     }
 
     public func remainingSeconds(at now: AppInstant) -> Int {
@@ -90,6 +96,29 @@ public struct EyeBreakState: Codable, Sendable, Equatable {
             return 0
         }
         return max(0, now.seconds(until: nextDueAt))
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case phase
+        case nextDueAt
+        case activeDeadline
+        case lastSatisfiedAt
+        case lastSuppressedAt
+        case preReminderShownForDueAt
+        case snoozeCount
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            phase: try container.decodeIfPresent(EyeBreakPhase.self, forKey: .phase) ?? .scheduled,
+            nextDueAt: try container.decodeIfPresent(AppInstant.self, forKey: .nextDueAt),
+            activeDeadline: try container.decodeIfPresent(Deadline.self, forKey: .activeDeadline),
+            lastSatisfiedAt: try container.decodeIfPresent(AppInstant.self, forKey: .lastSatisfiedAt),
+            lastSuppressedAt: try container.decodeIfPresent(AppInstant.self, forKey: .lastSuppressedAt),
+            preReminderShownForDueAt: try container.decodeIfPresent(AppInstant.self, forKey: .preReminderShownForDueAt),
+            snoozeCount: try container.decodeIfPresent(Int.self, forKey: .snoozeCount) ?? 0
+        )
     }
 }
 
@@ -115,10 +144,19 @@ public struct PresenceState: Codable, Sendable, Equatable {
 public struct SuppressionState: Codable, Sendable, Equatable {
     public var pauseUntil: Date?
     public var mutedForDate: String?
+    public var presentationModeUntil: Date?
+    public var isFullscreenActive: Bool
 
-    public init(pauseUntil: Date? = nil, mutedForDate: String? = nil) {
+    public init(
+        pauseUntil: Date? = nil,
+        mutedForDate: String? = nil,
+        presentationModeUntil: Date? = nil,
+        isFullscreenActive: Bool = false
+    ) {
         self.pauseUntil = pauseUntil
         self.mutedForDate = mutedForDate
+        self.presentationModeUntil = presentationModeUntil
+        self.isFullscreenActive = isFullscreenActive
     }
 
     public func isAutomaticReminderSuppressed(at date: Date, calendar: Calendar) -> Bool {
@@ -128,7 +166,41 @@ public struct SuppressionState: Codable, Sendable, Equatable {
         if mutedForDate == WorkHoursPolicy.dayKey(date, calendar: calendar) {
             return true
         }
+        if isPresentationModeActive(at: date) {
+            return true
+        }
         return false
+    }
+
+    public func isPresentationModeActive(at date: Date) -> Bool {
+        guard let presentationModeUntil else {
+            return false
+        }
+        return date < presentationModeUntil
+    }
+
+    public func presentationModeRemainingSeconds(at date: Date) -> Int {
+        guard let presentationModeUntil, date < presentationModeUntil else {
+            return 0
+        }
+        return max(0, Int(ceil(presentationModeUntil.timeIntervalSince(date))))
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case pauseUntil
+        case mutedForDate
+        case presentationModeUntil
+        case isFullscreenActive
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            pauseUntil: try container.decodeIfPresent(Date.self, forKey: .pauseUntil),
+            mutedForDate: try container.decodeIfPresent(String.self, forKey: .mutedForDate),
+            presentationModeUntil: try container.decodeIfPresent(Date.self, forKey: .presentationModeUntil),
+            isFullscreenActive: try container.decodeIfPresent(Bool.self, forKey: .isFullscreenActive) ?? false
+        )
     }
 }
 

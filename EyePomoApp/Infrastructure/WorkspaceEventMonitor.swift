@@ -6,6 +6,7 @@ import Foundation
 final class WorkspaceEventMonitor {
     private let handler: (AppEvent) -> Void
     private var observers: [Any] = []
+    private var lastFullscreenActive: Bool?
 
     init(handler: @escaping (AppEvent) -> Void) {
         self.handler = handler
@@ -33,7 +34,17 @@ final class WorkspaceEventMonitor {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.handler(.system(.screensChanged)) }
+            Task { @MainActor in
+                self?.handler(.system(.screensChanged))
+                self?.emitFullscreenActivityIfNeeded()
+            }
+        })
+        observers.append(workspaceCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.emitFullscreenActivityIfNeeded() }
         })
         observers.append(DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name("com.apple.screenIsLocked"),
@@ -49,6 +60,8 @@ final class WorkspaceEventMonitor {
         ) { [weak self] _ in
             Task { @MainActor in self?.handler(.presence(.screenUnlocked)) }
         })
+
+        emitFullscreenActivityIfNeeded()
     }
 
     func stop() {
@@ -59,5 +72,24 @@ final class WorkspaceEventMonitor {
             DistributedNotificationCenter.default().removeObserver(observer)
         }
         observers.removeAll()
+        lastFullscreenActive = nil
+    }
+
+    private func emitFullscreenActivityIfNeeded() {
+        let isActive = Self.isFullscreenSpaceLikelyActive()
+        guard lastFullscreenActive != isActive else {
+            return
+        }
+        lastFullscreenActive = isActive
+        handler(.system(.fullscreenActivityChanged(isActive: isActive)))
+    }
+
+    private static func isFullscreenSpaceLikelyActive() -> Bool {
+        NSScreen.screens.contains { screen in
+            let frame = screen.frame
+            let visible = screen.visibleFrame
+            return abs(frame.width - visible.width) <= 2
+                && abs(frame.height - visible.height) <= 2
+        }
     }
 }

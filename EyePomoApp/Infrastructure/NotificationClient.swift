@@ -33,6 +33,24 @@ final class NotificationClient {
         UNUserNotificationCenter.current().add(request)
     }
 
+    func deliverPreReminderNotification(_ request: PreReminderRequest) {
+        guard isAvailable else {
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = "眼休即将开始"
+        content.body = request.message
+        content.sound = nil
+
+        let request = UNNotificationRequest(
+            identifier: "eyepomo-prereminder-\(UUID().uuidString)",
+            content: content,
+            trigger: nil
+        )
+        UNUserNotificationCenter.current().add(request)
+    }
+
     private func title(for kind: OverlayKind) -> String {
         switch kind {
         case .eyeBreak:

@@ -20,6 +20,10 @@ public enum UserAction: Sendable, Equatable {
     case skipEyeBreak
     case pauseReminders(seconds: Int)
     case muteRemindersForToday
+    case startPresentationMode(seconds: Int)
+    case endPresentationMode
+    case previewPreferences(AppPreferences)
+    case commitPreferences(AppPreferences)
     case updatePreferences(AppPreferences)
 }
 
@@ -40,10 +44,12 @@ public enum SystemEvent: Sendable, Equatable {
     case workHoursStarted
     case workHoursEnded
     case screensChanged
+    case fullscreenActivityChanged(isActive: Bool)
 }
 
 public enum AppEffect: Sendable, Equatable {
     case showOverlay(OverlayRequest)
+    case showPreReminder(PreReminderRequest)
     case dismissOverlay
     case appendEvent(EventEnvelope)
     case persistState
@@ -59,6 +65,16 @@ public struct OverlayRequest: Codable, Sendable, Equatable {
     public init(kind: OverlayKind, durationSeconds: Int, message: String) {
         self.kind = kind
         self.durationSeconds = durationSeconds
+        self.message = message
+    }
+}
+
+public struct PreReminderRequest: Codable, Sendable, Equatable {
+    public var leadSeconds: Int
+    public var message: String
+
+    public init(leadSeconds: Int, message: String) {
+        self.leadSeconds = leadSeconds
         self.message = message
     }
 }
