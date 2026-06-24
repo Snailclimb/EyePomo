@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Foundation
 
 enum AppSoundCatalog {
@@ -98,21 +99,72 @@ enum AppSoundCatalog {
 
 @MainActor
 final class SoundPlayer {
+    private var activePlayers: [AVAudioPlayer] = []
     private var activeSounds: [NSSound] = []
 
     func play(name: String, volume: Double) {
-        guard let url = Bundle.main.url(forResource: name, withExtension: "caf"),
-              let sound = NSSound(contentsOf: url, byReference: true)
-        else {
+        guard let url = resourceURL(for: name) else {
+            logFailure("missing resource \(name).caf")
             return
         }
 
-        sound.volume = Float(min(1, max(0, volume)))
+        let clampedVolume = Float(min(1, max(0, volume)))
+        if playWithAVAudioPlayer(url: url, volume: clampedVolume) {
+            return
+        }
+
+        playWithNSSound(url: url, volume: clampedVolume)
+    }
+
+    private func resourceURL(for name: String) -> URL? {
+        Bundle.main.url(forResource: name, withExtension: "caf")
+            ?? Bundle.main.url(forResource: name, withExtension: "caf", subdirectory: "Sounds")
+    }
+
+    private func playWithAVAudioPlayer(url: URL, volume: Float) -> Bool {
+        do {
+            let player = try AVAudioPlayer(contentsOf: url)
+            player.volume = volume
+            player.prepareToPlay()
+            guard player.play() else {
+                logFailure("AVAudioPlayer refused to play \(url.lastPathComponent)")
+                return false
+            }
+
+            activePlayers.append(player)
+            let cleanupDelay = max(1.0, player.duration + 0.5)
+            DispatchQueue.main.asyncAfter(deadline: .now() + cleanupDelay) { [weak self] in
+                self?.activePlayers.removeAll { !$0.isPlaying }
+            }
+            return true
+        } catch {
+            logFailure("AVAudioPlayer failed for \(url.lastPathComponent): \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    private func playWithNSSound(url: URL, volume: Float) {
+        guard let sound = NSSound(contentsOf: url, byReference: false) else {
+            logFailure("NSSound failed to load \(url.lastPathComponent)")
+            return
+        }
+
+        sound.volume = volume
         activeSounds.append(sound)
-        sound.play()
+        guard sound.play() else {
+            logFailure("NSSound refused to play \(url.lastPathComponent)")
+            activeSounds.removeAll { $0 === sound }
+            return
+        }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
             self?.activeSounds.removeAll { !$0.isPlaying }
         }
+    }
+
+    private func logFailure(_ message: String) {
+        #if DEBUG
+        NSLog("EyePomo sound playback: %@", message)
+        #endif
     }
 }
