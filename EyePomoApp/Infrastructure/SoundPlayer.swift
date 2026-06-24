@@ -117,8 +117,17 @@ final class SoundPlayer {
     }
 
     private func resourceURL(for name: String) -> URL? {
-        Bundle.main.url(forResource: name, withExtension: "caf")
-            ?? Bundle.main.url(forResource: name, withExtension: "caf", subdirectory: "Sounds")
+        #if SWIFT_PACKAGE
+        if let url = resourceURL(in: .module, name: name) {
+            return url
+        }
+        #endif
+        return resourceURL(in: .main, name: name)
+    }
+
+    private func resourceURL(in bundle: Bundle, name: String) -> URL? {
+        bundle.url(forResource: name, withExtension: "caf")
+            ?? bundle.url(forResource: name, withExtension: "caf", subdirectory: "Sounds")
     }
 
     private func playWithAVAudioPlayer(url: URL, volume: Float) -> Bool {
