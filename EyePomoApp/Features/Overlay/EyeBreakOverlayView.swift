@@ -45,6 +45,8 @@ struct EyeBreakOverlayView: View {
                             .frame(width: 96)
                     }
                     .buttonStyle(SecondaryPanelButtonStyle())
+                    .opacity(canSnooze ? 1 : 0.45)
+                    .disabled(!canSnooze)
                     .focusable(false)
 
                     Button {
@@ -76,6 +78,10 @@ struct EyeBreakOverlayView: View {
             light: Color(red: 248 / 255, green: 251 / 255, blue: 250 / 255).opacity(0.82),
             dark: Color(red: 8 / 255, green: 13 / 255, blue: 16 / 255).opacity(0.78)
         )
+    }
+
+    private var canSnooze: Bool {
+        coordinator.state.eyeBreak.snoozeCount < max(0, coordinator.state.preferences.maxSnoozesPerEyeBreak)
     }
 
     private func localized(_ chinese: String, _ english: String) -> String {
