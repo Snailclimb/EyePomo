@@ -201,7 +201,7 @@ struct SettingsView: View {
                 SettingRow(localized("系统通知", "System notifications"), sub: localized("允许通过 macOS 通知辅助提醒", "Use macOS notifications as a backup reminder")) {
                     settingSwitch(notificationsBinding)
                 }
-                SettingRow(localized("提示音", "Sound"), sub: localized("只在非免打扰场景播放短音效", "Play short cues only outside quiet contexts")) {
+                SettingRow(localized("提示音", "Sound"), sub: localized("只在低打扰策略允许时播放短音效", "Play short cues only when quiet rules allow it")) {
                     settingSwitch(boolBinding(\.soundEnabled))
                 }
                 SettingRow(localized("音效", "Sound cue"), sub: localized("用于眼休开始提醒", "Used for eye-break start reminders")) {
@@ -212,17 +212,17 @@ struct SettingsView: View {
                 }
             }
 
-            SettingGroup(localized("免打扰", "Quiet mode")) {
-                SettingRow(localized("尊重系统专注", "Respect Focus"), sub: localized("开启后，提示音需要同时开启系统通知", "When on, sounds require system notifications to be enabled")) {
+            SettingGroup(localized("低打扰策略", "Quiet rules")) {
+                SettingRow(localized("跟随系统专注", "Follow system Focus"), sub: localized("开启后，提示音走 macOS 通知；系统专注、勿扰或通知声音关闭时不会响", "Routes cues through macOS notifications; Focus, Do Not Disturb, or muted notification sounds keep them silent")) {
                     settingSwitch(boolBinding(\.respectSystemFocus))
                 }
-                SettingRow(localized("全屏时降低打扰", "Reduce in full screen"), sub: localized("全屏空间内先延后提醒，达到次数上限后再提醒", "Snooze first in full-screen spaces, then remind after the limit")) {
+                SettingRow(localized("全屏时先延后", "Snooze in full screen"), sub: localized("检测到全屏空间时，不立刻打断，先自动延后眼休", "In full-screen spaces, EyePomo snoozes first instead of interrupting immediately")) {
                     settingSwitch(boolBinding(\.reduceFullscreenInterruptions))
                 }
-                SettingRow(localized("最多延后次数", "Max snoozes"), sub: localized("单轮眼休最多可延后几次", "Maximum snoozes per eye-break cycle")) {
+                SettingRow(localized("延后上限", "Snooze limit"), sub: localized("全屏自动延后和手动“稍后”共用这个上限", "Full-screen auto-snooze and manual Snooze share this per-cycle limit")) {
                     SettingStepper(value: intBinding(\.maxSnoozesPerEyeBreak), range: 0...5, unit: localized("次", "times"))
                 }
-                SettingRow(localized("会议模式时长", "Meeting mode duration"), sub: localized("菜单栏中开启会议模式的默认时长", "Default duration for meeting mode from the menu bar"), last: true) {
+                SettingRow(localized("会议模式时长", "Meeting mode duration"), sub: localized("从菜单栏手动开启；期间不弹眼休、不响提示音，到时自动恢复", "Started from the menu bar; suppresses eye breaks and cues until it expires"), last: true) {
                     SettingStepper(value: minutesBinding(\.presentationModeDurationSeconds), range: 15...180, unit: localized("分钟", "min"))
                 }
             }
@@ -851,42 +851,65 @@ struct SettingsView: View {
     }
 
     private var soundPicker: some View {
-        Menu {
-            ForEach(AppSoundCatalog.availableNames, id: \.self) { name in
-                Button {
-                    var preferences = coordinator.state.preferences
-                    preferences.soundName = name
-                    coordinator.updatePreferences(preferences)
-                } label: {
+        HStack(spacing: 8) {
+            Menu {
+                ForEach(AppSoundCatalog.breakStartNames, id: \.self) { name in
+                    Button {
+                        var preferences = coordinator.state.preferences
+                        preferences.soundName = name
+                        coordinator.updatePreferences(preferences)
+                        coordinator.previewSound(named: name)
+                    } label: {
+                        Text(AppSoundCatalog.localizedTitle(
+                            for: name,
+                            english: coordinator.appSettings.language == .english
+                        ))
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
                     Text(AppSoundCatalog.localizedTitle(
-                        for: name,
+                        for: selectedBreakStartSoundName,
                         english: coordinator.appSettings.language == .english
                     ))
+                    Image(systemName: "chevron.down")
+                        .font(AppFont.font(10, weight: .medium))
+                        .foregroundStyle(SettingsStyle.tertiaryText)
                 }
+                .font(AppFont.font(12, weight: .medium))
+                .foregroundStyle(SettingsStyle.primaryText)
+                .padding(.vertical, 5)
+                .padding(.horizontal, 10)
+                .background(SettingsStyle.subtleFill)
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .stroke(SettingsStyle.hairlineStrong, lineWidth: 1)
+                )
             }
-        } label: {
-            HStack(spacing: 6) {
-                Text(AppSoundCatalog.localizedTitle(
-                    for: coordinator.state.preferences.soundName,
-                    english: coordinator.appSettings.language == .english
-                ))
-                Image(systemName: "chevron.down")
-                    .font(AppFont.font(10, weight: .medium))
-                    .foregroundStyle(SettingsStyle.tertiaryText)
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+
+            Button {
+                coordinator.previewSound(named: selectedBreakStartSoundName)
+            } label: {
+                Image(systemName: "play.fill")
+                    .font(AppFont.font(11, weight: .semibold))
+                    .foregroundStyle(EyePomoTheme.teal)
+                    .frame(width: 28, height: 28)
+                    .background(SettingsStyle.subtleFill)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(SettingsStyle.hairlineStrong, lineWidth: 1))
             }
-            .font(AppFont.font(12, weight: .medium))
-            .foregroundStyle(SettingsStyle.primaryText)
-            .padding(.vertical, 5)
-            .padding(.horizontal, 10)
-            .background(SettingsStyle.subtleFill)
-            .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(SettingsStyle.hairlineStrong, lineWidth: 1)
-            )
+            .buttonStyle(.plain)
+            .help(localized("试听提示音", "Preview sound"))
+            .accessibilityLabel(localized("试听提示音", "Preview sound"))
         }
-        .menuStyle(.borderlessButton)
         .fixedSize()
+    }
+
+    private var selectedBreakStartSoundName: String {
+        AppSoundCatalog.normalizedBreakStartName(coordinator.state.preferences.soundName)
     }
 
     private var eyeCareFilterEnabledBinding: Binding<Bool> {
@@ -1080,7 +1103,7 @@ private struct SettingRow<Trailing: View>: View {
                         .font(AppFont.font(11))
                         .lineSpacing(2)
                         .foregroundStyle(SettingsStyle.secondaryText)
-                        .lineLimit(2)
+                        .lineLimit(3)
                         .truncationMode(.middle)
                 }
             }

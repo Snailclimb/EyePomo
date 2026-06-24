@@ -6,17 +6,29 @@ enum AppSoundCatalog {
     static let focusCompleteDefault = "focus-complete"
     static let breakCompleteDefault = "break-complete"
 
-    static let availableNames = [
+    static let breakStartNames = [
         "break-start",
         "break-start-soft",
-        "break-start-open",
+        "break-start-open"
+    ]
+
+    static let focusCompleteNames = [
         "focus-complete",
         "focus-complete-bright",
-        "focus-complete-soft",
+        "focus-complete-soft"
+    ]
+
+    static let breakCompleteNames = [
         "break-complete",
         "break-complete-crisp",
         "break-complete-soft"
     ]
+
+    static let availableNames = breakStartNames + focusCompleteNames + breakCompleteNames
+
+    static func normalizedBreakStartName(_ name: String) -> String {
+        breakStartNames.contains(name) ? name : breakStartDefault
+    }
 
     static func normalizedName(_ name: String, fallback: String) -> String {
         availableNames.contains(name) ? name : fallback

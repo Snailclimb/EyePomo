@@ -40,7 +40,7 @@ final class AppCoordinator: ObservableObject {
         let appSettings = AppSettingsStore().load() ?? AppSettings()
         let dataPaths = AppPaths(applicationSupportDirectory: appSettings.dataDirectoryURL)
         let now = Self.makeInstant()
-        let preferences = SettingsStore().load() ?? AppPreferences()
+        let preferences = Self.normalizedPreferences(SettingsStore().load() ?? AppPreferences())
         var restoredState = AppStateStore().load(now: now, wallDate: Date(), paths: dataPaths) ?? AppState.initial(now: now, preferences: preferences)
         restoredState.preferences = preferences
         self.appSettings = appSettings
@@ -112,7 +112,8 @@ final class AppCoordinator: ObservableObject {
         dispatch(.user(action))
     }
 
-    func updatePreferences(_ preferences: AppPreferences) {
+    func updatePreferences(_ incomingPreferences: AppPreferences) {
+        let preferences = Self.normalizedPreferences(incomingPreferences)
         if preferences == state.preferences,
            pendingPreferenceCommit == nil || pendingPreferenceCommit == preferences {
             return
@@ -190,6 +191,11 @@ final class AppCoordinator: ObservableObject {
             refreshNotificationSettings()
         }
         updatePreferences(preferences)
+    }
+
+    func previewSound(named soundName: String? = nil) {
+        let name = AppSoundCatalog.normalizedBreakStartName(soundName ?? state.preferences.soundName)
+        soundPlayer.play(name: name, volume: state.preferences.soundVolume)
     }
 
     var dataDirectoryPath: String {
@@ -616,10 +622,7 @@ final class AppCoordinator: ObservableObject {
         let body: String
         switch event.kind {
         case .eyeBreakDue:
-            soundName = AppSoundCatalog.normalizedName(
-                state.preferences.soundName,
-                fallback: AppSoundCatalog.breakStartDefault
-            )
+            soundName = AppSoundCatalog.normalizedBreakStartName(state.preferences.soundName)
             title = appSettings.language == .english ? "Time to rest your eyes" : "该休息眼睛了"
             body = appSettings.language == .english ? "Look away for a short break" : "看向 6 米外，放松眼睛"
         case .pomodoroFocusCompleted:
@@ -670,6 +673,12 @@ final class AppCoordinator: ObservableObject {
 
     private static func makeInstant() -> AppInstant {
         AppInstant(milliseconds: Int64(ProcessInfo.processInfo.systemUptime * 1_000))
+    }
+
+    private static func normalizedPreferences(_ preferences: AppPreferences) -> AppPreferences {
+        var normalized = preferences
+        normalized.soundName = AppSoundCatalog.normalizedBreakStartName(preferences.soundName)
+        return normalized
     }
 
     private func appendEventAndRefresh(_ event: EventEnvelope) {
