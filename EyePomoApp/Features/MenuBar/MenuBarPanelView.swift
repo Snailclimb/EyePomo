@@ -75,16 +75,16 @@ struct MenuBarPanelView: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 secondaryButton(localized("立即眼休", "Eye break now"), icon: "eye", action: .requestEyeBreakNow)
-                if isEyeBreakActive {
+                presentationModeButton
+            }
+            if isEyeBreakActive {
+                HStack(spacing: 8) {
                     snoozeButton
                 }
             }
             HStack(spacing: 8) {
                 secondaryButton(localized("下一阶段", "Next phase"), icon: "forward.end", action: .skipPomodoroPhase)
                 secondaryButton(localized("重置番茄", "Reset Pomodoro"), icon: "arrow.counterclockwise", action: .resetPomodoro)
-            }
-            HStack(spacing: 8) {
-                presentationModeButton
             }
         }
     }
