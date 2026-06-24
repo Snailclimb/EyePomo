@@ -75,7 +75,9 @@ struct MenuBarPanelView: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 secondaryButton(localized("立即眼休", "Eye break now"), icon: "eye", action: .requestEyeBreakNow)
-                snoozeOrPauseButton
+                if isEyeBreakActive {
+                    snoozeButton
+                }
             }
             HStack(spacing: 8) {
                 secondaryButton(localized("下一阶段", "Next phase"), icon: "forward.end", action: .skipPomodoroPhase)
@@ -83,7 +85,6 @@ struct MenuBarPanelView: View {
             }
             HStack(spacing: 8) {
                 presentationModeButton
-                muteTodayButton
             }
         }
     }
@@ -100,25 +101,12 @@ struct MenuBarPanelView: View {
     }
 
     @ViewBuilder
-    private var snoozeOrPauseButton: some View {
-        if isEyeBreakActive {
-            secondaryButton(
-                canSnoozeEyeBreak ? localized("稍后提醒", "Snooze") : localized("稍后已达上限", "Snooze limit"),
-                icon: "clock.arrow.circlepath",
-                action: .snoozeEyeBreak,
-                disabled: !canSnoozeEyeBreak
-            )
-        } else {
-            secondaryButton(localized("暂停 1 小时", "Pause 1 hour"), icon: "pause.circle", action: .pauseReminders(seconds: 3_600))
-        }
-    }
-
-    private var muteTodayButton: some View {
+    private var snoozeButton: some View {
         secondaryButton(
-            isMutedForToday ? localized("今日已静音", "Muted today") : localized("今日静音", "Mute today"),
-            icon: isMutedForToday ? "bell.slash.fill" : "bell.slash",
-            action: .muteRemindersForToday,
-            disabled: isMutedForToday
+            canSnoozeEyeBreak ? localized("稍后提醒", "Snooze") : localized("稍后已达上限", "Snooze limit"),
+            icon: "clock.arrow.circlepath",
+            action: .snoozeEyeBreak,
+            disabled: !canSnoozeEyeBreak
         )
     }
 
@@ -188,10 +176,6 @@ struct MenuBarPanelView: View {
 
     private var canSnoozeEyeBreak: Bool {
         coordinator.state.eyeBreak.snoozeCount < max(0, coordinator.state.preferences.maxSnoozesPerEyeBreak)
-    }
-
-    private var isMutedForToday: Bool {
-        coordinator.state.suppression.mutedForDate == WorkHoursPolicy.dayKey(Date(), calendar: Calendar.current)
     }
 
     private func localized(_ chinese: String, _ english: String) -> String {
