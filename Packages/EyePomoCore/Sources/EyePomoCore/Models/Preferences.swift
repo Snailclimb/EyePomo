@@ -25,8 +25,16 @@ public struct AppPreferences: Codable, Sendable, Equatable {
     public var maxSnoozesPerEyeBreak: Int
     public var presentationModeDurationSeconds: Int
     public var soundEnabled: Bool
-    public var soundName: String
+    public var eyeBreakStartSoundName: String
+    public var focusStartSoundName: String
+    public var focusCompleteSoundName: String
+    public var breakCompleteSoundName: String
     public var soundVolume: Double
+
+    public var soundName: String {
+        get { eyeBreakStartSoundName }
+        set { eyeBreakStartSoundName = newValue }
+    }
 
     public init(
         eyeBreakEnabled: Bool = true,
@@ -53,7 +61,11 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         maxSnoozesPerEyeBreak: Int = 3,
         presentationModeDurationSeconds: Int = 60 * 60,
         soundEnabled: Bool = false,
-        soundName: String = "break-start",
+        soundName: String? = nil,
+        eyeBreakStartSoundName: String = "break-start",
+        focusStartSoundName: String = "focus-complete-soft",
+        focusCompleteSoundName: String = "focus-complete",
+        breakCompleteSoundName: String = "break-complete",
         soundVolume: Double = 0.5
     ) {
         self.eyeBreakEnabled = eyeBreakEnabled
@@ -80,7 +92,10 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         self.maxSnoozesPerEyeBreak = maxSnoozesPerEyeBreak
         self.presentationModeDurationSeconds = presentationModeDurationSeconds
         self.soundEnabled = soundEnabled
-        self.soundName = soundName
+        self.eyeBreakStartSoundName = soundName ?? eyeBreakStartSoundName
+        self.focusStartSoundName = focusStartSoundName
+        self.focusCompleteSoundName = focusCompleteSoundName
+        self.breakCompleteSoundName = breakCompleteSoundName
         self.soundVolume = soundVolume
     }
 
@@ -111,11 +126,16 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         case presentationModeDurationSeconds
         case soundEnabled
         case soundName
+        case eyeBreakStartSoundName
+        case focusStartSoundName
+        case focusCompleteSoundName
+        case breakCompleteSoundName
         case soundVolume
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacySoundName = try container.decodeIfPresent(String.self, forKey: .soundName)
         self.init(
             eyeBreakEnabled: try container.decodeIfPresent(Bool.self, forKey: .eyeBreakEnabled) ?? true,
             eyeBreakIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .eyeBreakIntervalSeconds) ?? 20 * 60,
@@ -143,7 +163,10 @@ public struct AppPreferences: Codable, Sendable, Equatable {
             maxSnoozesPerEyeBreak: try container.decodeIfPresent(Int.self, forKey: .maxSnoozesPerEyeBreak) ?? 3,
             presentationModeDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .presentationModeDurationSeconds) ?? 60 * 60,
             soundEnabled: try container.decodeIfPresent(Bool.self, forKey: .soundEnabled) ?? false,
-            soundName: try container.decodeIfPresent(String.self, forKey: .soundName) ?? "break-start",
+            eyeBreakStartSoundName: try container.decodeIfPresent(String.self, forKey: .eyeBreakStartSoundName) ?? legacySoundName ?? "break-start",
+            focusStartSoundName: try container.decodeIfPresent(String.self, forKey: .focusStartSoundName) ?? "focus-complete-soft",
+            focusCompleteSoundName: try container.decodeIfPresent(String.self, forKey: .focusCompleteSoundName) ?? "focus-complete",
+            breakCompleteSoundName: try container.decodeIfPresent(String.self, forKey: .breakCompleteSoundName) ?? "break-complete",
             soundVolume: try container.decodeIfPresent(Double.self, forKey: .soundVolume) ?? 0.5
         )
     }
@@ -174,7 +197,10 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         try container.encode(maxSnoozesPerEyeBreak, forKey: .maxSnoozesPerEyeBreak)
         try container.encode(presentationModeDurationSeconds, forKey: .presentationModeDurationSeconds)
         try container.encode(soundEnabled, forKey: .soundEnabled)
-        try container.encode(soundName, forKey: .soundName)
+        try container.encode(eyeBreakStartSoundName, forKey: .eyeBreakStartSoundName)
+        try container.encode(focusStartSoundName, forKey: .focusStartSoundName)
+        try container.encode(focusCompleteSoundName, forKey: .focusCompleteSoundName)
+        try container.encode(breakCompleteSoundName, forKey: .breakCompleteSoundName)
         try container.encode(soundVolume, forKey: .soundVolume)
     }
 }

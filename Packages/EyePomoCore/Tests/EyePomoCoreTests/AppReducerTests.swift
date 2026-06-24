@@ -51,7 +51,32 @@ struct AppReducerTests {
         #expect(preferences.presentationModeDurationSeconds == 60 * 60)
         #expect(preferences.soundEnabled == false)
         #expect(preferences.soundName == "break-start")
+        #expect(preferences.eyeBreakStartSoundName == "break-start")
+        #expect(preferences.focusStartSoundName == "focus-complete-soft")
+        #expect(preferences.focusCompleteSoundName == "focus-complete")
+        #expect(preferences.breakCompleteSoundName == "break-complete")
         #expect(preferences.soundVolume == 0.5)
+    }
+
+    @Test("AppPreferences decodes legacy sound name as eye-break start sound")
+    func appPreferencesDecodeLegacySoundName() throws {
+        let json = """
+        {
+          "soundEnabled": true,
+          "soundName": "break-start-soft",
+          "soundVolume": 0.7
+        }
+        """.data(using: .utf8)!
+
+        let preferences = try JSONDecoder().decode(AppPreferences.self, from: json)
+
+        #expect(preferences.soundEnabled)
+        #expect(preferences.soundName == "break-start-soft")
+        #expect(preferences.eyeBreakStartSoundName == "break-start-soft")
+        #expect(preferences.focusStartSoundName == "focus-complete-soft")
+        #expect(preferences.focusCompleteSoundName == "focus-complete")
+        #expect(preferences.breakCompleteSoundName == "break-complete")
+        #expect(preferences.soundVolume == 0.7)
     }
 
     @Test("Display snapshot hides the next eye break when eye reminders are disabled")

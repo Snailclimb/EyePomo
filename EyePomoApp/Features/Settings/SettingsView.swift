@@ -201,11 +201,36 @@ struct SettingsView: View {
                 SettingRow(localized("系统通知", "System notifications"), sub: localized("允许通过 macOS 通知辅助提醒", "Use macOS notifications as a backup reminder")) {
                     settingSwitch(notificationsBinding)
                 }
-                SettingRow(localized("提示音", "Sound"), sub: localized("只在低打扰策略允许时播放短音效", "Play short cues only when quiet rules allow it")) {
+                SettingRow(localized("音频总开关", "Audio"), sub: localized("控制眼休、专注开始、专注完成和休息完成的短提示音", "Controls short cues for eye breaks, focus start, focus completion, and break completion")) {
                     settingSwitch(boolBinding(\.soundEnabled))
                 }
-                SettingRow(localized("音效", "Sound cue"), sub: localized("用于眼休开始提醒", "Used for eye-break start reminders")) {
-                    soundPicker
+                SettingRow(localized("眼休开始", "Eye break start"), sub: localized("到点看远方时播放", "Played when it is time to look away")) {
+                    soundPicker(
+                        keyPath: \.eyeBreakStartSoundName,
+                        names: AppSoundCatalog.breakStartNames,
+                        normalize: AppSoundCatalog.normalizedBreakStartName
+                    )
+                }
+                SettingRow(localized("专注开始", "Focus start"), sub: localized("点击开始专注后播放", "Played after starting a focus session")) {
+                    soundPicker(
+                        keyPath: \.focusStartSoundName,
+                        names: AppSoundCatalog.focusStartNames,
+                        normalize: AppSoundCatalog.normalizedFocusStartName
+                    )
+                }
+                SettingRow(localized("专注完成", "Focus complete"), sub: localized("专注结束并进入休息时播放", "Played when focus ends and a break begins")) {
+                    soundPicker(
+                        keyPath: \.focusCompleteSoundName,
+                        names: AppSoundCatalog.focusCompleteNames,
+                        normalize: AppSoundCatalog.normalizedFocusCompleteName
+                    )
+                }
+                SettingRow(localized("休息完成", "Break complete"), sub: localized("短休或长休结束时播放", "Played when a short or long break ends")) {
+                    soundPicker(
+                        keyPath: \.breakCompleteSoundName,
+                        names: AppSoundCatalog.breakCompleteNames,
+                        normalize: AppSoundCatalog.normalizedBreakCompleteName
+                    )
                 }
                 SettingRow(localized("音量", "Volume"), last: true) {
                     OpacityControl(value: doubleBinding(\.soundVolume), range: 0.1...1.0)
@@ -850,17 +875,23 @@ struct SettingsView: View {
         )
     }
 
-    private var soundPicker: some View {
-        HStack(spacing: 8) {
+    private func soundPicker(
+        keyPath: WritableKeyPath<AppPreferences, String>,
+        names: [String],
+        normalize: @escaping (String) -> String
+    ) -> some View {
+        let selectedName = normalize(coordinator.state.preferences[keyPath: keyPath])
+
+        return HStack(spacing: 8) {
             Menu {
-                ForEach(AppSoundCatalog.breakStartNames, id: \.self) { name in
+                ForEach(names, id: \.self) { name in
                     Button {
                         var preferences = coordinator.state.preferences
-                        preferences.soundName = name
+                        preferences[keyPath: keyPath] = name
                         coordinator.updatePreferences(preferences)
                         coordinator.previewSound(named: name)
                     } label: {
-                        Text(AppSoundCatalog.localizedTitle(
+                        Text(AppSoundCatalog.localizedOptionTitle(
                             for: name,
                             english: coordinator.appSettings.language == .english
                         ))
@@ -868,8 +899,8 @@ struct SettingsView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Text(AppSoundCatalog.localizedTitle(
-                        for: selectedBreakStartSoundName,
+                    Text(AppSoundCatalog.localizedOptionTitle(
+                        for: selectedName,
                         english: coordinator.appSettings.language == .english
                     ))
                     Image(systemName: "chevron.down")
@@ -891,7 +922,7 @@ struct SettingsView: View {
             .fixedSize()
 
             Button {
-                coordinator.previewSound(named: selectedBreakStartSoundName)
+                coordinator.previewSound(named: selectedName)
             } label: {
                 Image(systemName: "play.fill")
                     .font(AppFont.font(11, weight: .semibold))
@@ -906,10 +937,6 @@ struct SettingsView: View {
             .accessibilityLabel(localized("试听提示音", "Preview sound"))
         }
         .fixedSize()
-    }
-
-    private var selectedBreakStartSoundName: String {
-        AppSoundCatalog.normalizedBreakStartName(coordinator.state.preferences.soundName)
     }
 
     private var eyeCareFilterEnabledBinding: Binding<Bool> {

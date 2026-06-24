@@ -3,6 +3,7 @@ import Foundation
 
 enum AppSoundCatalog {
     static let breakStartDefault = "break-start"
+    static let focusStartDefault = "focus-complete-soft"
     static let focusCompleteDefault = "focus-complete"
     static let breakCompleteDefault = "break-complete"
 
@@ -18,6 +19,12 @@ enum AppSoundCatalog {
         "focus-complete-soft"
     ]
 
+    static let focusStartNames = [
+        "focus-complete-soft",
+        "focus-complete",
+        "focus-complete-bright"
+    ]
+
     static let breakCompleteNames = [
         "break-complete",
         "break-complete-crisp",
@@ -30,8 +37,37 @@ enum AppSoundCatalog {
         breakStartNames.contains(name) ? name : breakStartDefault
     }
 
+    static func normalizedFocusStartName(_ name: String) -> String {
+        focusStartNames.contains(name) ? name : focusStartDefault
+    }
+
+    static func normalizedFocusCompleteName(_ name: String) -> String {
+        focusCompleteNames.contains(name) ? name : focusCompleteDefault
+    }
+
+    static func normalizedBreakCompleteName(_ name: String) -> String {
+        breakCompleteNames.contains(name) ? name : breakCompleteDefault
+    }
+
     static func normalizedName(_ name: String, fallback: String) -> String {
         availableNames.contains(name) ? name : fallback
+    }
+
+    static func localizedOptionTitle(for name: String, english: Bool) -> String {
+        switch name {
+        case "break-start", "focus-complete", "break-complete":
+            return english ? "Default" : "默认"
+        case "break-start-soft", "focus-complete-soft", "break-complete-soft":
+            return english ? "Soft" : "柔和"
+        case "break-start-open":
+            return english ? "Light" : "轻快"
+        case "focus-complete-bright":
+            return english ? "Bright" : "明亮"
+        case "break-complete-crisp":
+            return english ? "Crisp" : "清脆"
+        default:
+            return name
+        }
     }
 
     static func localizedTitle(for name: String, english: Bool) -> String {

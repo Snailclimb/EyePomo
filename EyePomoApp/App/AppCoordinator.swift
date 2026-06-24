@@ -194,7 +194,7 @@ final class AppCoordinator: ObservableObject {
     }
 
     func previewSound(named soundName: String? = nil) {
-        let name = AppSoundCatalog.normalizedBreakStartName(soundName ?? state.preferences.soundName)
+        let name = AppSoundCatalog.normalizedName(soundName ?? state.preferences.eyeBreakStartSoundName, fallback: AppSoundCatalog.breakStartDefault)
         soundPlayer.play(name: name, volume: state.preferences.soundVolume)
     }
 
@@ -622,15 +622,19 @@ final class AppCoordinator: ObservableObject {
         let body: String
         switch event.kind {
         case .eyeBreakDue:
-            soundName = AppSoundCatalog.normalizedBreakStartName(state.preferences.soundName)
+            soundName = AppSoundCatalog.normalizedBreakStartName(state.preferences.eyeBreakStartSoundName)
             title = appSettings.language == .english ? "Time to rest your eyes" : "该休息眼睛了"
             body = appSettings.language == .english ? "Look away for a short break" : "看向 6 米外，放松眼睛"
+        case .pomodoroStarted:
+            soundName = AppSoundCatalog.normalizedFocusStartName(state.preferences.focusStartSoundName)
+            title = appSettings.language == .english ? "Focus started" : "专注开始"
+            body = appSettings.language == .english ? "Stay with this session" : "进入本轮专注"
         case .pomodoroFocusCompleted:
-            soundName = AppSoundCatalog.focusCompleteDefault
+            soundName = AppSoundCatalog.normalizedFocusCompleteName(state.preferences.focusCompleteSoundName)
             title = appSettings.language == .english ? "Focus complete" : "专注完成"
             body = appSettings.language == .english ? "Break started" : "休息阶段已开始"
         case .pomodoroBreakCompleted:
-            soundName = AppSoundCatalog.breakCompleteDefault
+            soundName = AppSoundCatalog.normalizedBreakCompleteName(state.preferences.breakCompleteSoundName)
             title = appSettings.language == .english ? "Break complete" : "休息完成"
             body = appSettings.language == .english ? "Ready for the next focus" : "可以开始下一轮专注"
         default:
@@ -677,7 +681,10 @@ final class AppCoordinator: ObservableObject {
 
     private static func normalizedPreferences(_ preferences: AppPreferences) -> AppPreferences {
         var normalized = preferences
-        normalized.soundName = AppSoundCatalog.normalizedBreakStartName(preferences.soundName)
+        normalized.eyeBreakStartSoundName = AppSoundCatalog.normalizedBreakStartName(preferences.eyeBreakStartSoundName)
+        normalized.focusStartSoundName = AppSoundCatalog.normalizedFocusStartName(preferences.focusStartSoundName)
+        normalized.focusCompleteSoundName = AppSoundCatalog.normalizedFocusCompleteName(preferences.focusCompleteSoundName)
+        normalized.breakCompleteSoundName = AppSoundCatalog.normalizedBreakCompleteName(preferences.breakCompleteSoundName)
         return normalized
     }
 
