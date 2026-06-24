@@ -20,6 +20,7 @@ struct MenuBarPanelView: View {
         .frame(width: 320)
         .background(EyePomoTheme.panelBackground)
         .foregroundStyle(EyePomoTheme.primaryText)
+        .id(coordinator.appSettings)
         .preferredColorScheme(Appearance.resolvedColorScheme(coordinator.appSettings.appearance))
     }
 
@@ -59,12 +60,13 @@ struct MenuBarPanelView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryPanelButtonStyle(accent: accentColor))
+            .focusable(false)
         }
         .padding(14)
         .background(EyePomoTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(EyePomoTheme.border, lineWidth: 1)
         )
     }
@@ -76,30 +78,21 @@ struct MenuBarPanelView: View {
                 secondaryButton("稍后提醒", icon: "clock.arrow.circlepath", action: .snoozeEyeBreak)
             }
             HStack(spacing: 8) {
-                secondaryButton("跳到下一阶段", icon: "forward.end", action: .skipPomodoroPhase)
+                secondaryButton("下一阶段", icon: "forward.end", action: .skipPomodoroPhase)
                 secondaryButton("重置番茄", icon: "arrow.counterclockwise", action: .resetPomodoro)
             }
         }
     }
 
     private var footer: some View {
-        HStack(spacing: 8) {
-            Button {
-                coordinator.showSettings()
-            } label: {
-                Label(localized("设置", "Settings"), systemImage: "gearshape")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryPanelButtonStyle())
-
-            Button {
-                coordinator.openLogsDirectory()
-            } label: {
-                Label(localized("日志", "Logs"), systemImage: "folder")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(SecondaryPanelButtonStyle())
+        Button {
+            coordinator.showSettings()
+        } label: {
+            Label(localized("设置", "Settings"), systemImage: "gearshape")
+                .frame(maxWidth: .infinity)
         }
+        .buttonStyle(SecondaryPanelButtonStyle())
+        .focusable(false)
     }
 
     private func secondaryButton(_ title: String, icon: String, action: UserAction) -> some View {
@@ -111,6 +104,7 @@ struct MenuBarPanelView: View {
                 .frame(maxWidth: .infinity)
         }
         .buttonStyle(SecondaryPanelButtonStyle())
+        .focusable(false)
     }
 
     private var accentColor: Color {

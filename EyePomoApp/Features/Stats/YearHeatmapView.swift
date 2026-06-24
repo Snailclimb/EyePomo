@@ -274,9 +274,9 @@ private enum HeatmapLevel: Int, CaseIterable {
     static func level(for count: Int) -> HeatmapLevel {
         switch count {
         case 0: return .empty
-        case 1...2: return .low
-        case 3...4: return .medium
-        case 5...7: return .high
+        case 1...3: return .low
+        case 4...6: return .medium
+        case 7...10: return .high
         default: return .max
         }
     }

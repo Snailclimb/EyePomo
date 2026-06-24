@@ -55,7 +55,7 @@ enum AppDensity: String, Codable, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct AppSettings: Codable, Equatable {
+struct AppSettings: Codable, Equatable, Hashable {
     var language: SettingsLanguage
     var customDataDirectoryPath: String?
     var appearance: AppearanceMode
@@ -101,12 +101,14 @@ struct AppSettings: Codable, Equatable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        language = try container.decodeIfPresent(SettingsLanguage.self, forKey: .language) ?? .chinese
-        customDataDirectoryPath = try container.decodeIfPresent(String.self, forKey: .customDataDirectoryPath)
-        appearance = try container.decodeIfPresent(AppearanceMode.self, forKey: .appearance) ?? .system
-        fontScale = try container.decodeIfPresent(FontScale.self, forKey: .fontScale) ?? .standard
-        accentPalette = try container.decodeIfPresent(AccentPalette.self, forKey: .accentPalette) ?? .eyeCare
-        density = try container.decodeIfPresent(AppDensity.self, forKey: .density) ?? .standard
+        // 用 `try? decode` 同时容错「字段缺失」与「非法 enum rawValue」，
+        // 避免单个坏值导致整个 AppSettings 回默认而丢失 language / 数据目录。
+        language = (try? container.decode(SettingsLanguage.self, forKey: .language)) ?? .chinese
+        customDataDirectoryPath = try? container.decodeIfPresent(String.self, forKey: .customDataDirectoryPath)
+        appearance = (try? container.decode(AppearanceMode.self, forKey: .appearance)) ?? .system
+        fontScale = (try? container.decode(FontScale.self, forKey: .fontScale)) ?? .standard
+        accentPalette = (try? container.decode(AccentPalette.self, forKey: .accentPalette)) ?? .eyeCare
+        density = (try? container.decode(AppDensity.self, forKey: .density)) ?? .standard
     }
 
     func encode(to encoder: Encoder) throws {

@@ -13,8 +13,7 @@
 		8A0000000000000000000104 /* EyePomoTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000204 /* EyePomoTheme.swift */; };
 		8A0000000000000000000105 /* MenuBarPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000205 /* MenuBarPanelView.swift */; };
 		8A0000000000000000000106 /* StatusItemController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000206 /* StatusItemController.swift */; };
-		8A0000000000000000000107 /* OverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000207 /* OverlayView.swift */; };
-		8A0000000000000000000108 /* OverlayWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000208 /* OverlayWindowController.swift */; };
+		8A0000000000000000000108 /* EyeCareFilterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000208 /* EyeCareFilterController.swift */; };
 		8A0000000000000000000109 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000209 /* SettingsView.swift */; };
 		8A000000000000000000010A /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000020A /* SettingsWindowController.swift */; };
 		8A000000000000000000010B /* TodayStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000020B /* TodayStatsView.swift */; };
@@ -39,8 +38,7 @@
 		8A0000000000000000000204 /* EyePomoTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EyePomoTheme.swift; sourceTree = "<group>"; };
 		8A0000000000000000000205 /* MenuBarPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPanelView.swift; sourceTree = "<group>"; };
 		8A0000000000000000000206 /* StatusItemController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusItemController.swift; sourceTree = "<group>"; };
-		8A0000000000000000000207 /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
-		8A0000000000000000000208 /* OverlayWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayWindowController.swift; sourceTree = "<group>"; };
+		8A0000000000000000000208 /* EyeCareFilterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EyeCareFilterController.swift; sourceTree = "<group>"; };
 		8A0000000000000000000209 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		8A000000000000000000020A /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		8A000000000000000000020B /* TodayStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayStatsView.swift; sourceTree = "<group>"; };
@@ -156,8 +154,7 @@
 		8A0000000000000000000407 /* Overlay */ = {
 			isa = PBXGroup;
 			children = (
-				8A0000000000000000000207 /* OverlayView.swift */,
-				8A0000000000000000000208 /* OverlayWindowController.swift */,
+				8A0000000000000000000208 /* EyeCareFilterController.swift */,
 			);
 			path = Overlay;
 			sourceTree = "<group>";
@@ -261,8 +258,7 @@
 				8A0000000000000000000104 /* EyePomoTheme.swift in Sources */,
 				8A0000000000000000000105 /* MenuBarPanelView.swift in Sources */,
 				8A0000000000000000000106 /* StatusItemController.swift in Sources */,
-				8A0000000000000000000107 /* OverlayView.swift in Sources */,
-				8A0000000000000000000108 /* OverlayWindowController.swift in Sources */,
+				8A0000000000000000000108 /* EyeCareFilterController.swift in Sources */,
 				8A0000000000000000000109 /* SettingsView.swift in Sources */,
 				8A000000000000000000010A /* SettingsWindowController.swift in Sources */,
 				8A000000000000000000010B /* TodayStatsView.swift in Sources */,

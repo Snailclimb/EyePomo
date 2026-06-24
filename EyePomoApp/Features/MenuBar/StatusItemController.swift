@@ -73,7 +73,12 @@ final class StatusItemController: NSObject {
 
     private func showMenu(from button: NSStatusBarButton) {
         let menu = NSMenu()
+        menu.appearance = Appearance.nsAppearance(coordinator.appSettings.appearance)
         menu.autoenablesItems = false
+        let eyeCareItem = menuItem(localized("护眼模式", "Eye Care Mode"), action: #selector(toggleEyeCareFilter))
+        eyeCareItem.state = coordinator.state.preferences.eyeCareFilterEnabled ? .on : .off
+        menu.addItem(eyeCareItem)
+        menu.addItem(.separator())
         menu.addItem(menuItem(localized("暂停提醒 1 小时", "Pause for 1 Hour"), action: #selector(pauseForOneHour)))
         menu.addItem(menuItem(localized("今日不再提醒", "Mute for Today"), action: #selector(muteToday)))
         menu.addItem(.separator())
@@ -90,6 +95,11 @@ final class StatusItemController: NSObject {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
         return item
+    }
+
+    @objc private func toggleEyeCareFilter() {
+        let enabled = coordinator.state.preferences.eyeCareFilterEnabled
+        coordinator.setEyeCareFilterEnabled(!enabled)
     }
 
     @objc private func pauseForOneHour() {

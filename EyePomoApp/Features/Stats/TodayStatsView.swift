@@ -19,9 +19,9 @@ struct TodayStatsView: View {
         }
         .padding(12)
         .background(EyePomoTheme.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: AppDensityProfile.metrics.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .stroke(EyePomoTheme.border, lineWidth: 1)
         )
     }

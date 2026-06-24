@@ -18,7 +18,7 @@ final class AppCoordinator: ObservableObject {
     private let appSettingsStore = AppSettingsStore()
     private let stateStore = AppStateStore()
     private let eventStore = EventStore()
-    private let overlayWindowController = OverlayWindowController()
+    private let eyeCareFilterController = EyeCareFilterController()
     private let notificationClient = NotificationClient()
     private lazy var statusItemController = StatusItemController(coordinator: self)
     private let settingsWindowController = SettingsWindowController()
@@ -69,6 +69,7 @@ final class AppCoordinator: ObservableObject {
         workspaceEventMonitor?.start()
         refreshSummaryAndJournal(for: Date())
         refreshChrome()
+        applyEyeCareFilter()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.tick()
@@ -137,19 +138,23 @@ final class AppCoordinator: ObservableObject {
         dataPaths.logsDirectory.path
     }
 
-    var todayJournalPath: String {
+    var summariesDirectoryPath: String {
+        dataPaths.summariesDirectory.path
+    }
+
+    var currentMonthJournalPath: String {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-        let dayKey = formatter.string(from: Date())
+        formatter.dateFormat = "yyyy-MM"
+        let monthKey = formatter.string(from: Date())
         return dataPaths.journalsDirectory
-            .appendingPathComponent("\(dayKey).md")
+            .appendingPathComponent("\(monthKey).md")
             .path
     }
 
-    var todayJournalExists: Bool {
-        FileManager.default.fileExists(atPath: todayJournalPath)
+    var currentMonthJournalExists: Bool {
+        FileManager.default.fileExists(atPath: currentMonthJournalPath)
     }
 
     func setSettingsLanguage(_ language: SettingsLanguage) {
@@ -211,6 +216,30 @@ final class AppCoordinator: ObservableObject {
         appSettingsStore.save(settings)
     }
 
+    func setEyeCareFilterEnabled(_ enabled: Bool) {
+        var preferences = state.preferences
+        preferences.eyeCareFilterEnabled = enabled
+        updatePreferences(preferences)
+        eyeCareFilterController.update(enabled: enabled, strength: preferences.eyeCareFilterStrength)
+    }
+
+    func setEyeCareFilterStrength(_ strength: Double) {
+        var preferences = state.preferences
+        preferences.eyeCareFilterStrength = strength
+        updatePreferences(preferences)
+        if preferences.eyeCareFilterEnabled {
+            eyeCareFilterController.update(enabled: true, strength: strength)
+        }
+    }
+
+    /// 按 preferences 同步护眼滤镜显示状态。
+    private func applyEyeCareFilter() {
+        eyeCareFilterController.update(
+            enabled: state.preferences.eyeCareFilterEnabled,
+            strength: state.preferences.eyeCareFilterStrength
+        )
+    }
+
     /// 将外观相关全局值（字号、强调色、密度）同步到当前 `appSettings`。
     private func syncAppearanceGlobals() {
         AppFont.scale = appSettings.fontScale.multiplier
@@ -230,6 +259,9 @@ final class AppCoordinator: ObservableObject {
             return
         }
         applyAppearanceAcrossWindows()
+        // 系统外观变化不会改变 appSettings，手动通知 SwiftUI 重新解析
+        // preferredColorScheme（其依赖的系统外观已变）。
+        objectWillChange.send()
     }
 
     func showSettings() {
@@ -257,8 +289,8 @@ final class AppCoordinator: ObservableObject {
         panel.directoryURL = dataPaths.applicationSupportDirectory
         panel.title = appSettings.language == .english ? "Choose Data Folder" : "选择数据存储文件夹"
         panel.message = appSettings.language == .english
-            ? "EyePomo will create Logs and Journals folders inside the selected folder."
-            : "EyePomo 会在所选文件夹内创建 Logs 和 Journals 子目录。"
+            ? "EyePomo will create Logs, Journals, and Summaries folders inside the selected folder."
+            : "EyePomo 会在所选文件夹内创建 Logs、Journals 和 Summaries 子目录。"
         panel.prompt = appSettings.language == .english ? "Use Folder" : "使用此文件夹"
 
         guard panel.runModal() == .OK, let url = panel.url else {
@@ -282,7 +314,12 @@ final class AppCoordinator: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([dataPaths.logsDirectory])
     }
 
-    func regenerateTodayJournal() {
+    func openSummariesDirectory() {
+        try? dataPaths.ensureBaseDirectories()
+        NSWorkspace.shared.activateFileViewerSelecting([dataPaths.summariesDirectory])
+    }
+
+    func regenerateCurrentMonthJournal() {
         refreshSummaryAndJournal(for: Date())
     }
 
@@ -455,14 +492,11 @@ final class AppCoordinator: ObservableObject {
             case .updateStatusItem:
                 break
             case .showOverlay(let request):
-                if state.preferences.overlayEnabled {
-                    overlayWindowController.show(request: request, coordinator: self)
-                }
                 if state.preferences.notificationsEnabled {
                     notificationClient.deliverOverlayNotification(request)
                 }
             case .dismissOverlay:
-                overlayWindowController.dismiss()
+                break
             case .appendEvent(let event):
                 appendEventAndRefresh(event)
             case .persistState:
@@ -533,11 +567,13 @@ final class AppCoordinator: ObservableObject {
 
             @MainActor
             func restoreDiagnosticsState() {
-                overlayWindowController.dismiss()
+                eyeCareFilterController.hide()
                 settingsWindowController.closeForDiagnostics()
                 state.preferences = originalPreferences
                 appSettings = originalAppSettings
                 dataPaths = originalDataPaths
+                syncAppearanceGlobals()
+                applyEyeCareFilter()
                 settingsStore.save(originalPreferences)
                 appSettingsStore.save(originalAppSettings)
                 try? FileManager.default.removeItem(at: diagnosticDataRoot)
@@ -552,10 +588,11 @@ final class AppCoordinator: ObservableObject {
 
             var diagnosticPreferences = state.preferences
             diagnosticPreferences.eyeBreakEnabled = true
-            diagnosticPreferences.overlayEnabled = true
             diagnosticPreferences.notificationsEnabled = false
             diagnosticPreferences.workHoursEnabled = false
+            diagnosticPreferences.eyeCareFilterStrength = 0.18
             updatePreferences(diagnosticPreferences)
+            setEyeCareFilterEnabled(true)
             try? await Task.sleep(nanoseconds: 250_000_000)
 
             showSettings()
@@ -564,17 +601,27 @@ final class AppCoordinator: ObservableObject {
                 failures.append("settings window did not become visible")
             }
 
-            send(.requestEyeBreakNow)
-            try? await Task.sleep(nanoseconds: 500_000_000)
             let expectedPanels = max(1, NSScreen.screens.count)
-            if overlayWindowController.visiblePanelCountForDiagnostics < expectedPanels {
-                failures.append("eye break overlay did not create panels for active screens")
+            if eyeCareFilterController.visiblePanelCountForDiagnostics < expectedPanels {
+                failures.append("eye care filter did not create panels for active screens")
+            }
+
+            setEyeCareFilterEnabled(false)
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if eyeCareFilterController.visiblePanelCountForDiagnostics != 0 {
+                failures.append("eye care filter did not hide after disabling")
+            }
+
+            send(.requestEyeBreakNow)
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            if state.presentation.activeOverlay != .eyeBreak {
+                failures.append("manual eye break did not enter active eye-break state")
             }
 
             send(.snoozeEyeBreak)
             try? await Task.sleep(nanoseconds: 250_000_000)
-            if overlayWindowController.visiblePanelCountForDiagnostics != 0 {
-                failures.append("eye break overlay did not dismiss after snooze")
+            if state.presentation.activeOverlay != nil {
+                failures.append("snooze did not clear active eye-break state")
             }
 
             send(.startPomodoro)
@@ -597,11 +644,16 @@ final class AppCoordinator: ObservableObject {
                 .filter { $0.pathExtension == "jsonl" }
             let journalFiles = ((try? FileManager.default.contentsOfDirectory(at: paths.journalsDirectory, includingPropertiesForKeys: nil)) ?? [])
                 .filter { $0.pathExtension == "md" }
+            let summaryFiles = ((try? FileManager.default.contentsOfDirectory(at: paths.summariesDirectory, includingPropertiesForKeys: nil)) ?? [])
+                .filter { $0.pathExtension == "json" }
             if logFiles.isEmpty {
                 failures.append("no JSONL event log was written")
             }
             if journalFiles.isEmpty {
                 failures.append("no Markdown journal was written")
+            }
+            if summaryFiles.isEmpty {
+                failures.append("no summary cache was written")
             }
 
             restoreDiagnosticsState()

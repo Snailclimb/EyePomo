@@ -74,7 +74,6 @@ enum AppPalette {
 struct DensityMetrics {
     let cornerRadius: CGFloat
     let contentPadding: CGFloat
-    let cardPadding: CGFloat
     let sectionSpacing: CGFloat
 }
 
@@ -86,11 +85,11 @@ enum AppDensityProfile {
     static var metrics: DensityMetrics {
         switch current {
         case .compact:
-            return DensityMetrics(cornerRadius: 8, contentPadding: 20, cardPadding: 12, sectionSpacing: 16)
+            return DensityMetrics(cornerRadius: 8, contentPadding: 20, sectionSpacing: 16)
         case .standard:
-            return DensityMetrics(cornerRadius: 10, contentPadding: 24, cardPadding: 14, sectionSpacing: 20)
+            return DensityMetrics(cornerRadius: 10, contentPadding: 24, sectionSpacing: 20)
         case .comfortable:
-            return DensityMetrics(cornerRadius: 12, contentPadding: 28, cardPadding: 16, sectionSpacing: 24)
+            return DensityMetrics(cornerRadius: 12, contentPadding: 28, sectionSpacing: 24)
         }
     }
 }
@@ -99,19 +98,30 @@ enum AppDensityProfile {
 
 @MainActor
 enum Appearance {
-    /// SwiftUI 层强制外观。`.system` 必须返回 nil —— 绝不可用 `.default`，
-    /// 否则会锁死外观、无法跟随系统。
+    /// SwiftUI 层外观。`.system` 显式解析当前系统外观（而非返回 nil），
+    /// 这样系统切换时配合 KVO 重设能真正触发 SwiftUI 重算。
     static func resolvedColorScheme(_ mode: AppearanceMode) -> ColorScheme? {
         switch mode {
-        case .system: return nil
+        case .system: return systemIsDark() ? .dark : .light
         case .light: return .light
         case .dark: return .dark
         }
     }
 
+    /// 读取当前系统外观是否为深色。`.system` 模式据此显式解析为 light/dark，
+    /// 避免依赖 `appearance = nil` 的隐式跟随（NSPopover / NSPanel 上不可靠）。
+    static func systemIsDark() -> Bool {
+        NSApp.effectiveAppearance.bestMatch(from: [
+            .darkAqua,
+            .vibrantDark,
+            .accessibilityHighContrastDarkAqua,
+            .accessibilityHighContrastVibrantDark
+        ]) != nil
+    }
+
     static func nsAppearance(_ mode: AppearanceMode) -> NSAppearance? {
         switch mode {
-        case .system: return nil
+        case .system: return systemIsDark() ? NSAppearance(named: .darkAqua) : NSAppearance(named: .aqua)
         case .light: return NSAppearance(named: .aqua)
         case .dark: return NSAppearance(named: .darkAqua)
         }

@@ -1,0 +1,48 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+.Spotlight-V100
+.Trashes
+
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad/
+xcuserdata/
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+Packages/*/.build/
+Packages/*/.swiftpm/
+Packages/*/Package.resolved
+
+# CocoaPods (预留，目前未使用)
+# Pods/
+
+# Carthage (预留，目前未使用)
+# Carthage/Build/
+
+# fastlane (预留，目前未使用)
+# fastlane/report.xml
+# fastlane/Preview.html
+# fastlane/screenshots
+# fastlane/test_output
+
+# 个人 / 临时文件
+*.log
+*.tmp
+*.bak
+*.swp
+*~

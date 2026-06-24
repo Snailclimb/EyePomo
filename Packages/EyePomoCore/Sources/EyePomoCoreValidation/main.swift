@@ -237,14 +237,21 @@ func summaryAndMarkdownFromEvents() throws {
     ]
 
     let summary = DailySummaryBuilder.build(events: events, day: startDate, calendar: calendar)
-    let markdown = MarkdownJournalRenderer.render(summary: summary, preferences: AppPreferences(), timeZoneIdentifier: "Asia/Shanghai")
+    let markdown = MarkdownJournalRenderer.renderMonthly(
+        monthKey: "2026-06",
+        summaries: [summary],
+        preferences: AppPreferences(),
+        timeZoneIdentifier: "Asia/Shanghai"
+    )
 
     try check(summary.focusSessionsCompleted == 1, "summary should count focus sessions")
     try check(summary.focusMinutes == 25, "summary should count focus minutes")
     try check(summary.eyeBreaksCompleted == 1, "summary should count eye completions")
     try check(summary.eyeBreaksSkipped == 1, "summary should count skips")
     try check(summary.inferredRests == 1, "summary should count inferred rests")
-    try check(markdown.contains("focus_sessions_completed: 1"), "markdown should include frontmatter")
+    try check(markdown.contains("month: 2026-06"), "markdown should include monthly frontmatter")
+    try check(markdown.contains("focus_sessions_completed: 1"), "markdown should include aggregate frontmatter")
+    try check(markdown.contains("| 2026-06-23 | 1 | 25 | 1 | 1 | 1 |"), "markdown should include daily rows")
     try check(markdown.contains("## 可供本地 AI 分析的问题"), "markdown should include analysis prompts")
 }
 

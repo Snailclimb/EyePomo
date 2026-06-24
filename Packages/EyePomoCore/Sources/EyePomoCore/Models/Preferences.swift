@@ -1,16 +1,10 @@
 import Foundation
 
-public enum OverlayTint: String, Codable, Sendable, Equatable, CaseIterable {
-    case warm
-    case dark
-}
-
 public struct AppPreferences: Codable, Sendable, Equatable {
     public var eyeBreakEnabled: Bool
     public var eyeBreakIntervalSeconds: Int
     public var eyeBreakDurationSeconds: Int
     public var snoozeSeconds: Int
-    public var overlayEnabled: Bool
     public var notificationsEnabled: Bool
     public var focusDurationSeconds: Int
     public var shortBreakDurationSeconds: Int
@@ -21,15 +15,14 @@ public struct AppPreferences: Codable, Sendable, Equatable {
     public var workEndMinuteOfDay: Int
     public var idleThresholdSeconds: Int
     public var launchAtLogin: Bool
-    public var overlayOpacity: Double
-    public var overlayTint: OverlayTint
+    public var eyeCareFilterEnabled: Bool
+    public var eyeCareFilterStrength: Double
 
     public init(
         eyeBreakEnabled: Bool = true,
         eyeBreakIntervalSeconds: Int = 20 * 60,
         eyeBreakDurationSeconds: Int = 20,
         snoozeSeconds: Int = 5 * 60,
-        overlayEnabled: Bool = true,
         notificationsEnabled: Bool = false,
         focusDurationSeconds: Int = 25 * 60,
         shortBreakDurationSeconds: Int = 5 * 60,
@@ -40,14 +33,13 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         workEndMinuteOfDay: Int = 18 * 60,
         idleThresholdSeconds: Int = 3 * 60,
         launchAtLogin: Bool = false,
-        overlayOpacity: Double = 0.82,
-        overlayTint: OverlayTint = .warm
+        eyeCareFilterEnabled: Bool = false,
+        eyeCareFilterStrength: Double = 0.18
     ) {
         self.eyeBreakEnabled = eyeBreakEnabled
         self.eyeBreakIntervalSeconds = eyeBreakIntervalSeconds
         self.eyeBreakDurationSeconds = eyeBreakDurationSeconds
         self.snoozeSeconds = snoozeSeconds
-        self.overlayEnabled = overlayEnabled
         self.notificationsEnabled = notificationsEnabled
         self.focusDurationSeconds = focusDurationSeconds
         self.shortBreakDurationSeconds = shortBreakDurationSeconds
@@ -58,8 +50,8 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         self.workEndMinuteOfDay = workEndMinuteOfDay
         self.idleThresholdSeconds = idleThresholdSeconds
         self.launchAtLogin = launchAtLogin
-        self.overlayOpacity = overlayOpacity
-        self.overlayTint = overlayTint
+        self.eyeCareFilterEnabled = eyeCareFilterEnabled
+        self.eyeCareFilterStrength = eyeCareFilterStrength
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -67,7 +59,6 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         case eyeBreakIntervalSeconds
         case eyeBreakDurationSeconds
         case snoozeSeconds
-        case overlayEnabled
         case notificationsEnabled
         case focusDurationSeconds
         case shortBreakDurationSeconds
@@ -78,8 +69,8 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         case workEndMinuteOfDay
         case idleThresholdSeconds
         case launchAtLogin
-        case overlayOpacity
-        case overlayTint
+        case eyeCareFilterEnabled
+        case eyeCareFilterStrength
     }
 
     public init(from decoder: Decoder) throws {
@@ -89,7 +80,6 @@ public struct AppPreferences: Codable, Sendable, Equatable {
             eyeBreakIntervalSeconds: try container.decodeIfPresent(Int.self, forKey: .eyeBreakIntervalSeconds) ?? 20 * 60,
             eyeBreakDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .eyeBreakDurationSeconds) ?? 20,
             snoozeSeconds: try container.decodeIfPresent(Int.self, forKey: .snoozeSeconds) ?? 5 * 60,
-            overlayEnabled: try container.decodeIfPresent(Bool.self, forKey: .overlayEnabled) ?? true,
             notificationsEnabled: try container.decodeIfPresent(Bool.self, forKey: .notificationsEnabled) ?? false,
             focusDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .focusDurationSeconds) ?? 25 * 60,
             shortBreakDurationSeconds: try container.decodeIfPresent(Int.self, forKey: .shortBreakDurationSeconds) ?? 5 * 60,
@@ -100,8 +90,8 @@ public struct AppPreferences: Codable, Sendable, Equatable {
             workEndMinuteOfDay: try container.decodeIfPresent(Int.self, forKey: .workEndMinuteOfDay) ?? 18 * 60,
             idleThresholdSeconds: try container.decodeIfPresent(Int.self, forKey: .idleThresholdSeconds) ?? 3 * 60,
             launchAtLogin: try container.decodeIfPresent(Bool.self, forKey: .launchAtLogin) ?? false,
-            overlayOpacity: try container.decodeIfPresent(Double.self, forKey: .overlayOpacity) ?? 0.82,
-            overlayTint: try container.decodeIfPresent(OverlayTint.self, forKey: .overlayTint) ?? .warm
+            eyeCareFilterEnabled: try container.decodeIfPresent(Bool.self, forKey: .eyeCareFilterEnabled) ?? false,
+            eyeCareFilterStrength: try container.decodeIfPresent(Double.self, forKey: .eyeCareFilterStrength) ?? 0.18
         )
     }
 
@@ -111,7 +101,6 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         try container.encode(eyeBreakIntervalSeconds, forKey: .eyeBreakIntervalSeconds)
         try container.encode(eyeBreakDurationSeconds, forKey: .eyeBreakDurationSeconds)
         try container.encode(snoozeSeconds, forKey: .snoozeSeconds)
-        try container.encode(overlayEnabled, forKey: .overlayEnabled)
         try container.encode(notificationsEnabled, forKey: .notificationsEnabled)
         try container.encode(focusDurationSeconds, forKey: .focusDurationSeconds)
         try container.encode(shortBreakDurationSeconds, forKey: .shortBreakDurationSeconds)
@@ -122,8 +111,8 @@ public struct AppPreferences: Codable, Sendable, Equatable {
         try container.encode(workEndMinuteOfDay, forKey: .workEndMinuteOfDay)
         try container.encode(idleThresholdSeconds, forKey: .idleThresholdSeconds)
         try container.encode(launchAtLogin, forKey: .launchAtLogin)
-        try container.encode(overlayOpacity, forKey: .overlayOpacity)
-        try container.encode(overlayTint, forKey: .overlayTint)
+        try container.encode(eyeCareFilterEnabled, forKey: .eyeCareFilterEnabled)
+        try container.encode(eyeCareFilterStrength, forKey: .eyeCareFilterStrength)
     }
 }
 

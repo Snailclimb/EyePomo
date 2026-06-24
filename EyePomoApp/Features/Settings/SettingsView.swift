@@ -35,6 +35,7 @@ struct SettingsView: View {
             }
             .background(SettingsStyle.windowBackground)
         }
+        .id(coordinator.appSettings)
         .frame(minWidth: 620, minHeight: 560)
         .font(AppFont.font(13))
         .foregroundStyle(SettingsStyle.primaryText)
@@ -156,11 +157,22 @@ struct SettingsView: View {
             timeTab
         case .data:
             dataTab
+        case .interface:
+            interfaceTab
         }
     }
 
     private var eyeTab: some View {
         VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
+            SettingGroup(localized("护眼模式", "Eye Care Mode")) {
+                SettingRow(localized("屏幕护眼滤镜", "Screen filter"), sub: localized("持续给屏幕叠加暖色滤镜降低蓝光，鼠标穿透不影响操作", "Keep a warm filter on the screen to cut blue light; clicks pass through")) {
+                    settingSwitch(eyeCareFilterEnabledBinding)
+                }
+                SettingRow(localized("滤镜强度", "Filter strength"), last: true) {
+                    OpacityControl(value: eyeCareFilterStrengthBinding, range: 0.05...0.50)
+                }
+            }
+
             SettingGroup {
                 SettingRow(localized("启用眼部提醒", "Enable eye reminders"), sub: localized("定时提醒你放松眼睛，遵循 20-20-20 法则", "Remind you to relax your eyes on a 20-20-20 cadence")) {
                     settingSwitch(boolBinding(\.eyeBreakEnabled))
@@ -177,9 +189,6 @@ struct SettingsView: View {
             }
 
             SettingGroup(localized("提醒方式", "Reminder style")) {
-                SettingRow(localized("全屏覆盖层", "Full-screen overlay"), sub: localized("眼休时显示半透明全屏提醒界面", "Show a translucent full-screen rest overlay")) {
-                    settingSwitch(boolBinding(\.overlayEnabled))
-                }
                 SettingRow(localized("系统通知", "System notifications"), sub: localized("允许通过 macOS 通知辅助提醒", "Use macOS notifications as a backup reminder"), last: true) {
                     settingSwitch(notificationsBinding)
                 }
@@ -227,7 +236,7 @@ struct SettingsView: View {
             }
 
             SettingGroup(localized("工作时段", "Work hours")) {
-                SettingRow(localized("启用工作时段限制", "Limit to work hours"), sub: localized("非工作时段不自动弹出眼休遮罩", "Do not show eye-break overlays outside work hours")) {
+                SettingRow(localized("启用工作时段限制", "Limit to work hours"), sub: localized("非工作时段不自动触发眼休提醒", "Do not trigger eye-break reminders outside work hours")) {
                     settingSwitch(boolBinding(\.workHoursEnabled))
                 }
                 SettingRow(localized("开始时间", "Start time")) {
@@ -238,15 +247,6 @@ struct SettingsView: View {
                 }
                 SettingRow(localized("空闲推测休息", "Infer idle rests"), sub: localized("超过阈值后重置眼休倒计时", "Reset the eye-break countdown after the idle threshold"), last: true) {
                     SettingStepper(value: minutesBinding(\.idleThresholdSeconds), range: 1...20, unit: localized("分钟", "min"))
-                }
-            }
-
-            SettingGroup(localized("覆盖层", "Overlay")) {
-                SettingRow(localized("遮罩色调", "Overlay tint"), sub: localized("暖色更柔和，暗色更接近原始遮罩", "Warm is gentler; dark matches the original dim overlay")) {
-                    OverlayTintSegmentedControl(selection: overlayTintBinding, language: coordinator.appSettings.language)
-                }
-                SettingRow(localized("遮罩透明度", "Overlay opacity"), sub: localized("调整休息遮罩的覆盖强度", "Adjust the visual strength of the rest overlay"), last: true) {
-                    OpacityControl(value: opacityBinding)
                 }
             }
         }
@@ -264,9 +264,17 @@ struct SettingsView: View {
                 yearHeatmapPanel
             }
             dataManagementGroup
-            interfaceGroup
-
             footerRow
+        }
+    }
+
+    private var interfaceTab: some View {
+        VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
+            interfaceGroup
+            Text(localized("外观、字号、强调色与密度会立即生效，并随设置一起保存在本机。", "Theme, font, accent, and density apply immediately and are saved on this Mac."))
+                .font(AppFont.font(11))
+                .foregroundStyle(SettingsStyle.tertiaryText)
+                .padding(.leading, 4)
         }
     }
 
@@ -590,8 +598,13 @@ struct SettingsView: View {
                     coordinator.openLogsDirectory()
                 }
             }
+            SettingRow(localized("统计缓存目录", "Summary cache folder"), sub: coordinator.summariesDirectoryPath) {
+                DataActionButton(title: localized("打开", "Open"), color: SettingsStyle.actionBlue) {
+                    coordinator.openSummariesDirectory()
+                }
+            }
             SettingRow(
-                localized("Markdown 摘要", "Markdown summaries"),
+                localized("月度 Markdown 摘要", "Monthly Markdown summary"),
                 sub: journalSubText,
                 last: true
             ) {
@@ -607,13 +620,13 @@ struct SettingsView: View {
                     .frame(width: 96)
                 } else {
                     DataActionButton(
-                        title: coordinator.todayJournalExists
+                        title: coordinator.currentMonthJournalExists
                             ? localized("打开", "Open")
                             : localized("生成", "Generate"),
                         color: EyePomoTheme.teal
                     ) {
-                        if coordinator.todayJournalExists {
-                            coordinator.openJournalFile(at: coordinator.todayJournalPath)
+                        if coordinator.currentMonthJournalExists {
+                            coordinator.openJournalFile(at: coordinator.currentMonthJournalPath)
                         } else {
                             triggerJournalRefresh()
                         }
@@ -627,16 +640,16 @@ struct SettingsView: View {
         if isRefreshingJournal {
             return localized("正在从事件日志重建摘要…", "Rebuilding summary from event logs…")
         }
-        if coordinator.todayJournalExists {
-            return coordinator.todayJournalPath
+        if coordinator.currentMonthJournalExists {
+            return coordinator.currentMonthJournalPath
         }
-        return localized("今日尚未生成摘要，完成任意一次眼休或番茄后自动生成", "No summary yet for today — it appears after the first eye break or Pomodoro")
+        return localized("本月尚未生成摘要，完成任意一次眼休或番茄后自动生成", "No summary yet for this month — it appears after the first eye break or Pomodoro")
     }
 
     private func triggerJournalRefresh() {
         guard !isRefreshingJournal else { return }
         isRefreshingJournal = true
-        coordinator.regenerateTodayJournal()
+        coordinator.regenerateCurrentMonthJournal()
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 800_000_000)
             isRefreshingJournal = false
@@ -793,25 +806,17 @@ struct SettingsView: View {
         )
     }
 
-    private var opacityBinding: Binding<Double> {
+    private var eyeCareFilterEnabledBinding: Binding<Bool> {
         Binding(
-            get: { coordinator.state.preferences.overlayOpacity },
-            set: { newValue in
-                var preferences = coordinator.state.preferences
-                preferences.overlayOpacity = newValue
-                coordinator.updatePreferences(preferences)
-            }
+            get: { coordinator.state.preferences.eyeCareFilterEnabled },
+            set: { coordinator.setEyeCareFilterEnabled($0) }
         )
     }
 
-    private var overlayTintBinding: Binding<OverlayTint> {
+    private var eyeCareFilterStrengthBinding: Binding<Double> {
         Binding(
-            get: { coordinator.state.preferences.overlayTint },
-            set: { newValue in
-                var preferences = coordinator.state.preferences
-                preferences.overlayTint = newValue
-                coordinator.updatePreferences(preferences)
-            }
+            get: { coordinator.state.preferences.eyeCareFilterStrength },
+            set: { coordinator.setEyeCareFilterStrength($0) }
         )
     }
 
@@ -841,6 +846,7 @@ private enum SettingsTab: CaseIterable, Identifiable {
     case pomodoro
     case time
     case data
+    case interface
 
     var id: Self { self }
 
@@ -862,6 +868,10 @@ private enum SettingsTab: CaseIterable, Identifiable {
             return "数据"
         case (.data, .english):
             return "Data"
+        case (.interface, .chinese):
+            return "界面"
+        case (.interface, .english):
+            return "Interface"
         }
     }
 }
@@ -1187,10 +1197,11 @@ private struct SettingStepper: View {
 
 private struct OpacityControl: View {
     @Binding var value: Double
+    var range: ClosedRange<Double> = 0.55...0.92
 
     var body: some View {
         HStack(spacing: 8) {
-            Slider(value: $value, in: 0.55...0.92)
+            Slider(value: $value, in: range)
                 .tint(EyePomoTheme.teal)
                 .frame(width: 120)
             Text("\(Int(value * 100))%")
@@ -1198,57 +1209,6 @@ private struct OpacityControl: View {
                 .foregroundStyle(SettingsStyle.secondaryText)
                 .monospacedDigit()
                 .frame(width: 34, alignment: .trailing)
-        }
-    }
-}
-
-private struct OverlayTintSegmentedControl: View {
-    @Binding var selection: OverlayTint
-    let language: SettingsLanguage
-
-    var body: some View {
-        HStack(spacing: 4) {
-            ForEach(OverlayTint.allCases, id: \.self) { tint in
-                Button {
-                    selection = tint
-                } label: {
-                    Label(title(for: tint), systemImage: symbol(for: tint))
-                        .font(AppFont.font(12, weight: selection == tint ? .medium : .regular))
-                        .foregroundStyle(selection == tint ? SettingsStyle.primaryText : SettingsStyle.mutedText)
-                        .frame(width: 76, height: 24)
-                        .background(
-                            RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(selection == tint ? SettingsStyle.selectionFill : .clear)
-                        )
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(SettingsStyle.segmentedTrack)
-        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(SettingsStyle.hairline, lineWidth: 1)
-        )
-    }
-
-    private func title(for tint: OverlayTint) -> String {
-        let isEnglish = language == .english
-        switch tint {
-        case .warm:
-            return isEnglish ? "Warm" : "暖色"
-        case .dark:
-            return isEnglish ? "Dark" : "暗色"
-        }
-    }
-
-    private func symbol(for tint: OverlayTint) -> String {
-        switch tint {
-        case .warm:
-            return "sun.max"
-        case .dark:
-            return "moon"
         }
     }
 }

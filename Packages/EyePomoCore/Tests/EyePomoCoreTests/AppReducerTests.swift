@@ -24,8 +24,8 @@ struct AppReducerTests {
         #expect(state.preferences.eyeBreakDurationSeconds == 20)
     }
 
-    @Test("AppPreferences decodes old data without overlay tint")
-    func appPreferencesDecodeOldDataWithoutOverlayTint() throws {
+    @Test("AppPreferences decodes old data without eye-care filter settings")
+    func appPreferencesDecodeOldDataWithoutEyeCareFilterSettings() throws {
         let json = """
         {
           "eyeBreakEnabled": false,
@@ -38,11 +38,10 @@ struct AppReducerTests {
         let preferences = try JSONDecoder().decode(AppPreferences.self, from: json)
 
         #expect(preferences.eyeBreakEnabled == false)
-        #expect(preferences.overlayEnabled == true)
-        #expect(preferences.overlayOpacity == 0.66)
         #expect(preferences.focusDurationSeconds == 1800)
-        #expect(preferences.overlayTint == .warm)
         #expect(preferences.eyeBreakDurationSeconds == 20)
+        #expect(preferences.eyeCareFilterEnabled == false)
+        #expect(preferences.eyeCareFilterStrength == 0.18)
     }
 
     @Test("Display snapshot hides the next eye break when eye reminders are disabled")
@@ -241,8 +240,8 @@ struct AppReducerTests {
         #expect(result.failedLineCount == 1)
     }
 
-    @Test("Daily summary and Markdown journal are derived from events")
-    func summaryAndMarkdownFromEvents() {
+    @Test("Daily summary and monthly Markdown journal are derived from events")
+    func summaryAndMonthlyMarkdownFromEvents() {
         let events = [
             EventEnvelope(occurredAt: startDate, timeZoneIdentifier: "Asia/Shanghai", kind: .pomodoroFocusCompleted(FocusPayload(durationSeconds: 1500, sessionID: UUID())), source: .system),
             EventEnvelope(occurredAt: startDate.addingTimeInterval(60), timeZoneIdentifier: "Asia/Shanghai", kind: .eyeBreakCompleted(EyeBreakPayload(durationSeconds: 20, trigger: "manual")), source: .user),
@@ -251,15 +250,59 @@ struct AppReducerTests {
         ]
 
         let summary = DailySummaryBuilder.build(events: events, day: startDate, calendar: calendar)
-        let markdown = MarkdownJournalRenderer.render(summary: summary, preferences: AppPreferences(), timeZoneIdentifier: "Asia/Shanghai")
+        let markdown = MarkdownJournalRenderer.renderMonthly(
+            monthKey: "2026-06",
+            summaries: [summary],
+            preferences: AppPreferences(),
+            timeZoneIdentifier: "Asia/Shanghai"
+        )
 
         #expect(summary.focusSessionsCompleted == 1)
         #expect(summary.focusMinutes == 25)
         #expect(summary.eyeBreaksCompleted == 1)
         #expect(summary.eyeBreaksSkipped == 1)
         #expect(summary.inferredRests == 1)
+        #expect(markdown.contains("month: 2026-06"))
         #expect(markdown.contains("focus_sessions_completed: 1"))
+        #expect(markdown.contains("| 2026-06-23 | 1 | 25 | 1 | 1 | 1 |"))
         #expect(markdown.contains("## 可供本地 AI 分析的问题"))
+    }
+
+    @Test("Monthly Markdown journal aggregates multiple daily summaries")
+    func monthlyMarkdownAggregatesDailySummaries() {
+        let summaries = [
+            DailySummary(
+                dayKey: "2026-06-23",
+                focusSessionsCompleted: 1,
+                focusMinutes: 25,
+                eyeBreaksCompleted: 2,
+                eyeBreaksSkipped: 1,
+                inferredRests: 3,
+                longestContinuousUsageMinutes: 34
+            ),
+            DailySummary(
+                dayKey: "2026-06-24",
+                focusSessionsCompleted: 2,
+                focusMinutes: 50,
+                eyeBreaksCompleted: 1,
+                eyeBreaksSkipped: 0,
+                inferredRests: 1,
+                longestContinuousUsageMinutes: 18
+            )
+        ]
+
+        let markdown = MarkdownJournalRenderer.renderMonthly(
+            monthKey: "2026-06",
+            summaries: summaries,
+            preferences: AppPreferences(),
+            timeZoneIdentifier: "Asia/Shanghai"
+        )
+
+        #expect(markdown.contains("focus_sessions_completed: 3"))
+        #expect(markdown.contains("focus_minutes: 75"))
+        #expect(markdown.contains("eye_breaks_completed: 3"))
+        #expect(markdown.contains("longest_continuous_usage_minutes: 34"))
+        #expect(markdown.contains("| 2026-06-24 | 2 | 50 | 1 | 0 | 1 | 18 |"))
     }
 
     @Test("buildAll groups events by day and matches single-day build")
