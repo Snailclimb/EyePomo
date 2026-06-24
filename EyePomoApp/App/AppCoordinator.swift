@@ -30,6 +30,7 @@ final class AppCoordinator: ObservableObject {
     private var pendingPreferenceCommit: AppPreferences?
     private var preferenceCommitTask: Task<Void, Never>?
     private var lastCommittedPreferences: AppPreferences
+    private var notificationSettings: NotificationSettingsSnapshot = .unknown
 
     init() {
         var calendar = Calendar(identifier: .gregorian)
@@ -57,12 +58,15 @@ final class AppCoordinator: ObservableObject {
         appSettingsStore.save(appSettings)
         if state.preferences.notificationsEnabled {
             if notificationClient.isAvailable {
-                notificationClient.requestAuthorizationIfNeeded()
+                notificationClient.requestAuthorizationIfNeeded { [weak self] settings in
+                    self?.notificationSettings = settings
+                }
             } else {
                 state.preferences.notificationsEnabled = false
                 settingsStore.save(state.preferences)
             }
         }
+        refreshNotificationSettings()
         statusItemController.install()
         idleMonitor = IdleMonitor(
             threshold: { [weak self] in self?.state.preferences.idleThresholdSeconds ?? 180 },
@@ -178,9 +182,12 @@ final class AppCoordinator: ObservableObject {
             }
 
             preferences.notificationsEnabled = true
-            notificationClient.requestAuthorizationIfNeeded()
+            notificationClient.requestAuthorizationIfNeeded { [weak self] settings in
+                self?.notificationSettings = settings
+            }
         } else {
             preferences.notificationsEnabled = false
+            refreshNotificationSettings()
         }
         updatePreferences(preferences)
     }
@@ -543,6 +550,8 @@ final class AppCoordinator: ObservableObject {
     }
 
     private func apply(_ effects: [AppEffect]) {
+        var pendingNotificationSoundCue: NotificationSoundCue?
+
         for effect in effects {
             switch effect {
             case .updateStatusItem:
@@ -554,7 +563,11 @@ final class AppCoordinator: ObservableObject {
                     eyeBreakOverlayWindowController.dismiss()
                 }
                 if state.preferences.notificationsEnabled {
-                    notificationClient.deliverOverlayNotification(request)
+                    notificationClient.deliverOverlayNotification(
+                        request,
+                        soundName: pendingNotificationSoundCue?.soundName
+                    )
+                    pendingNotificationSoundCue = nil
                 }
             case .showPreReminder(let request):
                 if state.preferences.notificationsEnabled {
@@ -564,13 +577,23 @@ final class AppCoordinator: ObservableObject {
                 eyeBreakOverlayWindowController.dismiss()
             case .appendEvent(let event):
                 appendEventAndRefresh(event)
-                playSoundIfNeeded(for: event)
+                if let cue = notificationSoundCueIfNeeded(for: event) {
+                    if shouldRouteSoundThroughSystemNotifications {
+                        pendingNotificationSoundCue = cue
+                    } else {
+                        soundPlayer.play(name: cue.soundName, volume: state.preferences.soundVolume)
+                    }
+                }
             case .persistState:
                 settingsStore.save(state.preferences)
                 stateStore.save(state, now: currentInstant, wallDate: Date(), paths: dataPaths)
             case .regenerateJournal(let date):
                 refreshSummaryAndJournal(for: date)
             }
+        }
+
+        if let pendingNotificationSoundCue {
+            notificationClient.deliverSoundCue(pendingNotificationSoundCue)
         }
     }
 
@@ -579,31 +602,41 @@ final class AppCoordinator: ObservableObject {
         statusItemController.update(snapshot: state.displaySnapshot(at: currentInstant))
     }
 
-    private func playSoundIfNeeded(for event: EventEnvelope) {
+    private var shouldRouteSoundThroughSystemNotifications: Bool {
+        state.preferences.respectSystemFocus
+    }
+
+    private func notificationSoundCueIfNeeded(for event: EventEnvelope) -> NotificationSoundCue? {
         guard shouldPlayAudibleCue() else {
-            return
+            return nil
         }
 
         let soundName: String?
+        let title: String
+        let body: String
         switch event.kind {
         case .eyeBreakDue:
             soundName = AppSoundCatalog.normalizedName(
                 state.preferences.soundName,
                 fallback: AppSoundCatalog.breakStartDefault
             )
+            title = appSettings.language == .english ? "Time to rest your eyes" : "该休息眼睛了"
+            body = appSettings.language == .english ? "Look away for a short break" : "看向 6 米外，放松眼睛"
         case .pomodoroFocusCompleted:
             soundName = AppSoundCatalog.focusCompleteDefault
+            title = appSettings.language == .english ? "Focus complete" : "专注完成"
+            body = appSettings.language == .english ? "Break started" : "休息阶段已开始"
         case .pomodoroBreakCompleted:
             soundName = AppSoundCatalog.breakCompleteDefault
+            title = appSettings.language == .english ? "Break complete" : "休息完成"
+            body = appSettings.language == .english ? "Ready for the next focus" : "可以开始下一轮专注"
         default:
             soundName = nil
+            title = ""
+            body = ""
         }
 
-        guard let soundName else {
-            return
-        }
-
-        soundPlayer.play(name: soundName, volume: state.preferences.soundVolume)
+        return soundName.map { NotificationSoundCue(soundName: $0, title: title, body: body) }
     }
 
     private func shouldPlayAudibleCue() -> Bool {
@@ -612,6 +645,9 @@ final class AppCoordinator: ObservableObject {
             return false
         }
         if preferences.respectSystemFocus, !preferences.notificationsEnabled {
+            return false
+        }
+        if preferences.respectSystemFocus, !notificationSettings.allowsAudibleAppCue {
             return false
         }
         guard !state.suppression.isPresentationModeActive(at: Date()) else {
@@ -624,6 +660,12 @@ final class AppCoordinator: ObservableObject {
             return false
         }
         return true
+    }
+
+    private func refreshNotificationSettings() {
+        notificationClient.refreshSettings { [weak self] settings in
+            self?.notificationSettings = settings
+        }
     }
 
     private static func makeInstant() -> AppInstant {
