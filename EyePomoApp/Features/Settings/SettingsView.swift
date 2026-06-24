@@ -151,6 +151,8 @@ struct SettingsView: View {
         switch selectedTab {
         case .eye:
             eyeTab
+        case .audio:
+            audioTab
         case .pomodoro:
             pomodoroTab
         case .time:
@@ -201,9 +203,43 @@ struct SettingsView: View {
                 SettingRow(localized("系统通知", "System notifications"), sub: localized("允许通过 macOS 通知辅助提醒", "Use macOS notifications as a backup reminder")) {
                     settingSwitch(notificationsBinding)
                 }
+            }
+
+            SettingGroup(localized("低打扰策略", "Quiet rules")) {
+                SettingRow(localized("跟随系统专注", "Follow system Focus"), sub: localized("开启后，提示音走 macOS 通知；系统专注、勿扰或通知声音关闭时不会响", "Routes cues through macOS notifications; Focus, Do Not Disturb, or muted notification sounds keep them silent")) {
+                    settingSwitch(boolBinding(\.respectSystemFocus))
+                }
+                SettingRow(localized("全屏时先延后", "Snooze in full screen"), sub: localized("检测到全屏空间时，不立刻打断，先自动延后眼休", "In full-screen spaces, EyePomo snoozes first instead of interrupting immediately")) {
+                    settingSwitch(boolBinding(\.reduceFullscreenInterruptions))
+                }
+                SettingRow(localized("延后上限", "Snooze limit"), sub: localized("全屏自动延后和手动“稍后”共用这个上限", "Full-screen auto-snooze and manual Snooze share this per-cycle limit")) {
+                    SettingStepper(value: intBinding(\.maxSnoozesPerEyeBreak), range: 0...5, unit: localized("次", "times"))
+                }
+                SettingRow(localized("会议模式时长", "Meeting mode duration"), sub: localized("从菜单栏手动开启；期间不弹眼休、不响提示音，到时自动恢复", "Started from the menu bar; suppresses eye breaks and cues until it expires"), last: true) {
+                    SettingStepper(value: minutesBinding(\.presentationModeDurationSeconds), range: 15...180, unit: localized("分钟", "min"))
+                }
+            }
+
+            Text(localized("20-20-20 法则：每工作 20 分钟，看向至少 6 米外，持续 20 秒。有助于缓解数字眼疲劳。", "20-20-20 rule: every 20 minutes, look at something at least 20 feet away for 20 seconds. It can help reduce digital eye strain."))
+                .font(AppFont.font(11))
+                .lineSpacing(3)
+                .foregroundStyle(SettingsStyle.tertiaryText)
+                .padding(.leading, 4)
+        }
+    }
+
+    private var audioTab: some View {
+        VStack(alignment: .leading, spacing: AppDensityProfile.metrics.sectionSpacing) {
+            SettingGroup(localized("播放控制", "Playback")) {
                 SettingRow(localized("音频总开关", "Audio"), sub: localized("控制眼休、专注开始、专注完成和休息完成的短提示音", "Controls short cues for eye breaks, focus start, focus completion, and break completion")) {
                     settingSwitch(boolBinding(\.soundEnabled))
                 }
+                SettingRow(localized("音量", "Volume"), last: true) {
+                    OpacityControl(value: doubleBinding(\.soundVolume), range: 0.1...1.0)
+                }
+            }
+
+            SettingGroup(localized("提示音", "Sound cues")) {
                 SettingRow(localized("眼休开始", "Eye break start"), sub: localized("到点看远方时播放", "Played when it is time to look away")) {
                     soundPicker(
                         keyPath: \.eyeBreakStartSoundName,
@@ -225,34 +261,16 @@ struct SettingsView: View {
                         normalize: AppSoundCatalog.normalizedFocusCompleteName
                     )
                 }
-                SettingRow(localized("休息完成", "Break complete"), sub: localized("短休或长休结束时播放", "Played when a short or long break ends")) {
+                SettingRow(localized("休息完成", "Break complete"), sub: localized("短休或长休结束时播放", "Played when a short or long break ends"), last: true) {
                     soundPicker(
                         keyPath: \.breakCompleteSoundName,
                         names: AppSoundCatalog.breakCompleteNames,
                         normalize: AppSoundCatalog.normalizedBreakCompleteName
                     )
                 }
-                SettingRow(localized("音量", "Volume"), last: true) {
-                    OpacityControl(value: doubleBinding(\.soundVolume), range: 0.1...1.0)
-                }
             }
 
-            SettingGroup(localized("低打扰策略", "Quiet rules")) {
-                SettingRow(localized("跟随系统专注", "Follow system Focus"), sub: localized("开启后，提示音走 macOS 通知；系统专注、勿扰或通知声音关闭时不会响", "Routes cues through macOS notifications; Focus, Do Not Disturb, or muted notification sounds keep them silent")) {
-                    settingSwitch(boolBinding(\.respectSystemFocus))
-                }
-                SettingRow(localized("全屏时先延后", "Snooze in full screen"), sub: localized("检测到全屏空间时，不立刻打断，先自动延后眼休", "In full-screen spaces, EyePomo snoozes first instead of interrupting immediately")) {
-                    settingSwitch(boolBinding(\.reduceFullscreenInterruptions))
-                }
-                SettingRow(localized("延后上限", "Snooze limit"), sub: localized("全屏自动延后和手动“稍后”共用这个上限", "Full-screen auto-snooze and manual Snooze share this per-cycle limit")) {
-                    SettingStepper(value: intBinding(\.maxSnoozesPerEyeBreak), range: 0...5, unit: localized("次", "times"))
-                }
-                SettingRow(localized("会议模式时长", "Meeting mode duration"), sub: localized("从菜单栏手动开启；期间不弹眼休、不响提示音，到时自动恢复", "Started from the menu bar; suppresses eye breaks and cues until it expires"), last: true) {
-                    SettingStepper(value: minutesBinding(\.presentationModeDurationSeconds), range: 15...180, unit: localized("分钟", "min"))
-                }
-            }
-
-            Text(localized("20-20-20 法则：每工作 20 分钟，看向至少 6 米外，持续 20 秒。有助于缓解数字眼疲劳。", "20-20-20 rule: every 20 minutes, look at something at least 20 feet away for 20 seconds. It can help reduce digital eye strain."))
+            Text(localized("低打扰策略会影响实际播放：会议模式、全屏延后、工作时段外或系统专注状态下可能不会响。", "Quiet rules affect playback: meeting mode, full-screen snooze, off-hours, or system Focus may keep cues silent."))
                 .font(AppFont.font(11))
                 .lineSpacing(3)
                 .foregroundStyle(SettingsStyle.tertiaryText)
@@ -976,6 +994,7 @@ struct SettingsView: View {
 
 private enum SettingsTab: CaseIterable, Identifiable {
     case eye
+    case audio
     case pomodoro
     case time
     case data
@@ -989,6 +1008,10 @@ private enum SettingsTab: CaseIterable, Identifiable {
             return "护眼"
         case (.eye, .english):
             return "Eye Breaks"
+        case (.audio, .chinese):
+            return "音频"
+        case (.audio, .english):
+            return "Audio"
         case (.pomodoro, .chinese):
             return "番茄钟"
         case (.pomodoro, .english):
