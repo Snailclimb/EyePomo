@@ -27,6 +27,18 @@
 		8A0000000000000000000113 /* WorkspaceEventMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000213 /* WorkspaceEventMonitor.swift */; };
 		8A0000000000000000000114 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000214 /* Assets.xcassets */; };
 		8A0000000000000000000116 /* YearHeatmapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000217 /* YearHeatmapView.swift */; };
+		8A0000000000000000000117 /* soft-bell.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000218 /* soft-bell.caf */; };
+		8A0000000000000000000118 /* break-start.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000219 /* break-start.caf */; };
+		8A0000000000000000000119 /* focus-complete.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000021A /* focus-complete.caf */; };
+		8A000000000000000000011A /* break-complete.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000021B /* break-complete.caf */; };
+		8A000000000000000000011B /* soft-bell-crisp.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000021D /* soft-bell-crisp.caf */; };
+		8A000000000000000000011C /* soft-bell-long.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000021E /* soft-bell-long.caf */; };
+		8A000000000000000000011D /* break-start-soft.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A000000000000000000021F /* break-start-soft.caf */; };
+		8A000000000000000000011E /* break-start-open.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000220 /* break-start-open.caf */; };
+		8A000000000000000000011F /* focus-complete-bright.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000221 /* focus-complete-bright.caf */; };
+		8A0000000000000000000120 /* focus-complete-soft.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000222 /* focus-complete-soft.caf */; };
+		8A0000000000000000000121 /* break-complete-crisp.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000223 /* break-complete-crisp.caf */; };
+		8A0000000000000000000122 /* break-complete-soft.caf in Resources */ = {isa = PBXBuildFile; fileRef = 8A0000000000000000000224 /* break-complete-soft.caf */; };
 		8A0000000000000000000115 /* EyePomoCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8A0000000000000000000A02 /* EyePomoCore */; };
 /* End PBXBuildFile section */
 
@@ -54,6 +66,19 @@
 		8A0000000000000000000215 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		8A0000000000000000000216 /* EyePomo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = EyePomo.entitlements; sourceTree = "<group>"; };
 		8A0000000000000000000217 /* YearHeatmapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YearHeatmapView.swift; sourceTree = "<group>"; };
+		8A0000000000000000000218 /* soft-bell.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "soft-bell.caf"; sourceTree = "<group>"; };
+		8A0000000000000000000219 /* break-start.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "break-start.caf"; sourceTree = "<group>"; };
+		8A000000000000000000021A /* focus-complete.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "focus-complete.caf"; sourceTree = "<group>"; };
+		8A000000000000000000021B /* break-complete.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "break-complete.caf"; sourceTree = "<group>"; };
+		8A000000000000000000021C /* THIRD_PARTY_AUDIO.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = THIRD_PARTY_AUDIO.md; sourceTree = "<group>"; };
+		8A000000000000000000021D /* soft-bell-crisp.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "soft-bell-crisp.caf"; sourceTree = "<group>"; };
+		8A000000000000000000021E /* soft-bell-long.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "soft-bell-long.caf"; sourceTree = "<group>"; };
+		8A000000000000000000021F /* break-start-soft.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "break-start-soft.caf"; sourceTree = "<group>"; };
+		8A0000000000000000000220 /* break-start-open.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "break-start-open.caf"; sourceTree = "<group>"; };
+		8A0000000000000000000221 /* focus-complete-bright.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "focus-complete-bright.caf"; sourceTree = "<group>"; };
+		8A0000000000000000000222 /* focus-complete-soft.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "focus-complete-soft.caf"; sourceTree = "<group>"; };
+		8A0000000000000000000223 /* break-complete-crisp.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "break-complete-crisp.caf"; sourceTree = "<group>"; };
+		8A0000000000000000000224 /* break-complete-soft.caf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "break-complete-soft.caf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -137,6 +162,7 @@
 			isa = PBXGroup;
 			children = (
 				8A0000000000000000000214 /* Assets.xcassets */,
+				8A000000000000000000040A /* Sounds */,
 				8A0000000000000000000215 /* Info.plist */,
 			);
 			path = Resources;
@@ -175,6 +201,26 @@
 				8A0000000000000000000217 /* YearHeatmapView.swift */,
 			);
 			path = Stats;
+			sourceTree = "<group>";
+		};
+		8A000000000000000000040A /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				8A0000000000000000000218 /* soft-bell.caf */,
+				8A000000000000000000021D /* soft-bell-crisp.caf */,
+				8A000000000000000000021E /* soft-bell-long.caf */,
+				8A0000000000000000000219 /* break-start.caf */,
+				8A000000000000000000021F /* break-start-soft.caf */,
+				8A0000000000000000000220 /* break-start-open.caf */,
+				8A000000000000000000021A /* focus-complete.caf */,
+				8A0000000000000000000221 /* focus-complete-bright.caf */,
+				8A0000000000000000000222 /* focus-complete-soft.caf */,
+				8A000000000000000000021B /* break-complete.caf */,
+				8A0000000000000000000223 /* break-complete-crisp.caf */,
+				8A0000000000000000000224 /* break-complete-soft.caf */,
+				8A000000000000000000021C /* THIRD_PARTY_AUDIO.md */,
+			);
+			path = Sounds;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -242,6 +288,18 @@
 			buildActionMask = 2147483647;
 			files = (
 				8A0000000000000000000114 /* Assets.xcassets in Resources */,
+				8A0000000000000000000117 /* soft-bell.caf in Resources */,
+				8A000000000000000000011B /* soft-bell-crisp.caf in Resources */,
+				8A000000000000000000011C /* soft-bell-long.caf in Resources */,
+				8A0000000000000000000118 /* break-start.caf in Resources */,
+				8A000000000000000000011D /* break-start-soft.caf in Resources */,
+				8A000000000000000000011E /* break-start-open.caf in Resources */,
+				8A0000000000000000000119 /* focus-complete.caf in Resources */,
+				8A000000000000000000011F /* focus-complete-bright.caf in Resources */,
+				8A0000000000000000000120 /* focus-complete-soft.caf in Resources */,
+				8A000000000000000000011A /* break-complete.caf in Resources */,
+				8A0000000000000000000121 /* break-complete-crisp.caf in Resources */,
+				8A0000000000000000000122 /* break-complete-soft.caf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
